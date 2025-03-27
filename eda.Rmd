@@ -1,0 +1,141 @@
+---
+title: "eda"
+author: "Ella Park"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r data, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+demand <- read.csv("C:\\Users\\Ella Park\\Desktop\\Year 3\\Sem 2\\Statistical Computing\\Project02\\Project02\\SCS_demand_modelling.csv")
+```
+
+## Scatter plots for exploratory data analysis
+
+```{r demand  scatters, echo=FALSE}
+# Wind vs demand
+wind_plot <- ggplot(demand, aes(x=wind, y=demand_gross)) +
+  geom_point(alpha=0.5, color="green") +
+  geom_smooth(method="lm", color="red") +
+  labs(title="Peak Demand vs Wind Capacity Factor", x="Wind Capacity Factor", y="Peak Demand (MW)") +
+  theme_bw()
+
+# Solar vs demand
+solar_plot <- ggplot(demand, aes(x=solar_S, y=demand_gross)) +
+  geom_point(alpha=0.5, color="orange") +
+  geom_smooth(method="lm", color="red") +
+  labs(title="Peak Demand vs Solar Capacity Factor", x="Solar Capacity Factor", y="Peak Demand (MW)") +
+  theme_bw()
+
+# Temp vs demand- shows negative correlation
+temp_plot <- ggplot(demand, aes(x=temp, y=demand_gross)) +
+   geom_point(alpha=0.5, color="blue") +
+   geom_smooth(method="lm", color="red") +
+   labs(title="Peak Demand vs Temperature", x="Temperature (°C)", y="Peak Demand (MW)") +
+   theme_bw()
+
+# Year vs demand- shows negative correlation
+year_plot <- ggplot(demand, aes(x=year, y=demand_gross)) +
+   geom_point(alpha=0.5, color="blue") +
+   geom_smooth(method="lm", color="red") +
+   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
+   theme_bw()
+
+grid.arrange(wind_plot, solar_plot, temp_plot, year_plot, ncol = 2, nrow = 2)
+```
+
+Wind vs demand- very little effect, lm probably has small coefficient. Could this be excluded from the model, give a lower AIC because we favor simpler models. Prove this from the regression.
+
+Solar vs demand- I don't quite know
+
+Temp vs demand- negative correlation. This will definitely useful in the model. Is there a better option though, eg TE, TO.
+
+Year vs demand- definitely important as there is a correlation but maybe not linear.
+
+```{r exploring year, echo=FALSE}
+year_quadratic <- ggplot(demand, aes(x=year, y=demand_gross)) +
+   geom_point(alpha=0.5, color="blue") +
+   geom_smooth(method="lm", formula = y ~ poly(x, 2), color="red") +  
+   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
+  theme_bw()
+
+year_cubic <- ggplot(demand, aes(x=year, y=demand_gross)) +
+   geom_point(alpha=0.5, color="blue") +
+   geom_smooth(method="lm", formula = y ~ poly(x, 3), color="red") +  
+   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
+  theme_bw()
+
+show(year_quadratic)
+show(year_cubic)
+```
+Include year as quadratic or cubic as these are far better.
+
+## Categorical variables EDA
+
+We compare these using violin plots.
+
+```{r violin, echo=TRUE}
+# Day of week
+day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(wdayindex))) +
+  geom_violin(alpha=0.5) +  # Create the violin plot
+  geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
+  scale_fill_brewer(palette="Set3") +  
+  labs(title="Peak Demand by Day of the Week", x="Day of Week (0=Sunday)", y="Peak Demand (MW)") +
+  theme_bw()
+
+# Month vs demand
+month_plot <- ggplot(demand, aes(x=factor(monthindex, levels = c(10, 11, 0, 1, 2)), y=demand_gross, fill=factor(monthindex))) +
+  geom_violin(alpha=0.5) +  # Create the violin plot
+  geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
+  scale_fill_brewer(palette="Set3") +  
+  labs(title="Peak Demand Distribution by Month", x="Month", y="Peak Demand (MW)") +
+  theme_bw()
+
+grid.arrange(day_plot, month_plot, ncol = 2, nrow = 1)
+```
+
+
+Both seem important as there are large variations between groups so we hypothesise they will be both be useful and significant.
+
+## Comparing interactions
+
+
+
+## Basic models
+```{r m_0, echo=FALSE}
+m_0 <- lm(demand_gross ~ wind + solar_S + temp + factor(wdayindex) + factor(monthindex), data = demand)
+
+m_0_year <- lm(demand_gross ~ wind + solar_S + temp + factor(wdayindex) + factor(monthindex) + year, data = demand)
+
+m_0_year_to <- lm(demand_gross ~ wind + solar_S + TO + factor(wdayindex) + factor(monthindex) + year, data = demand)
+
+m_0_year_te <- lm(demand_gross ~ wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + year, data = demand)
+
+m_0_year_squared <- lm(demand_gross ~ (wind + solar_S + temp + factor(wdayindex) + factor(monthindex) + year)^2, data = demand)
+
+m_0_year_to_squared <- lm(demand_gross ~ (wind + solar_S + TO + factor(wdayindex) + factor(monthindex) + year)^2, data = demand)
+
+m_0_year_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + year)^2, data = demand)
+
+summary(m_0)
+summary(m_0_year)
+summary(m_0_year_squared)
+summary(m_0_year_to)
+summary(m_0_year_te)
+summary(m_0_year_to_squared)
+summary(m_0_year_te_squared)
+```
+
+Should include year, use te instead of temp and probably squared
