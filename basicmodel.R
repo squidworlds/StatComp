@@ -49,10 +49,10 @@ predicting <- function(lm, data){
 }
 
 ## plotting function
-plotting <- function(estimation, data, predictor){
+plotting <- function(prediction, data, predictor){
   
   # putting historical data and estimated data in a dataframe
-  data <- cbind(data, estimation)
+  data <- cbind(data, prediction)
   
   # plotting demand against date, creating separate plots by month
   pp <- ggplot(data) + 
