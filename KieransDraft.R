@@ -2,6 +2,8 @@ demand <- read.csv("C:\\Users\\kiera\\OneDrive - University of Edinburgh\\Stats 
 
 ## loading packages
 library(tidyverse)
+library(ggplot2)
+
 theme_set(theme_bw())
 
 ## loading the data
@@ -9,8 +11,6 @@ head(demand)
 
 
 data1 <- demand
-data1$wdayindex <- as.factor(data1$wdayindex)
-data1$monthindex <- as.factor(data1$monthindex)
 head(data1)
 
 # Function to perform LOOCV for a given formula and dataset
@@ -24,12 +24,13 @@ loocv_model <- function(data, formula) {
     fit <- lm(formula, data = train_data)
     pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
     
-    tibble(
+    data.frame(
       monthindex = test_month,
       actual = test_data$demand_gross,
       mean_pred = pred$fit[,"fit"],
+      filter_mean_pred = 
       sd_pred = sqrt(pred$se.fit^2 + summary(fit)$sigma^2)  # Total predictive uncertainty
-    )
+    ) 
   })
   
   bind_rows(results)
@@ -38,18 +39,19 @@ loocv_model <- function(data, formula) {
 estimate_model_loocv <- function(data) {
   
   # Define model formulas
-  formula_basic <- demand_gross ~ 1 + wind + solar_S + temp + factor(wdayindex) + factor(monthindex)
-  formula_year  <- demand_gross ~ 1 + wind + solar_S + temp + factor(wdayindex) + factor(monthindex) + year
-  formula_year_cubed <- demand_gross ~ wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + poly(year, 3)^2
+  formula_basic <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex
+  formula_year  <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex + year
+  formula_year_cubed <- demand_gross ~ wind + solar_S + TE + wdayindex + monthindex + poly(year, 3)^2
   
 # Perform LOOCV for each model using correct logic
   result_basic <- loocv_model(data, formula_basic)
   result_year  <- loocv_model(data, formula_year)
   result_year_cubed <- loocv_model(data, formula_year_cubed)
   
+
   # Add model label
   result_basic$model <- "Basic"
-  result_year$model  <- "Year"
+  result_year$model <- "Year"
   result_year_cubed$model <- "YearCubed"
   # Combine both results
   results_all <- bind_rows(result_basic, result_year, result_year_cubed)
@@ -72,6 +74,11 @@ estimate_model_loocv <- function(data) {
 monthly_scores <- estimate_model_loocv(data1)
 print(monthly_scores)
 
+
+
 formula_basic <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex
 result_basic <- loocv_model(data1, formula_basic)
 
+
+summary(actual)
+summary(mean_pred)
