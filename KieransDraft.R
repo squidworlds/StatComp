@@ -61,56 +61,69 @@ estimate_model <- function(data1){
 }
 
 # Function to compute error metrics
-compute_predictive_scores <- function(actual, mean_pred, sd_pred) {
-  se <- (actual - mean_pred)^2
-  ds <- (actual - mean_pred)^2 / sd_pred^2 + 2 * log(sd_pred)
-  mae <- abs(actual - mean_pred)  # Mean Absolute Error
-  rae <- abs(actual - mean_pred) / abs(actual)  # Relative Absolute Error
-  sr  <- (actual - mean_pred) / sd_pred  # Standardized Residual
-  log_score <- -0.5 * log(2 * pi * sd_pred^2) - (se / (2 * sd_pred^2))  # Log-Score
-  
-  return(data.frame(
-    mean_se = mean(se, na.rm = TRUE),
-    mean_ds = mean(ds, na.rm = TRUE),
-    mean_mae = mean(mae, na.rm = TRUE),
-    mean_rae = mean(rae, na.rm = TRUE),
-    mean_sr = mean(sr, na.rm = TRUE),
-    mean_log_score = mean(log_score, na.rm = TRUE)
-  ))
+compute_predictive_scores <- function(df, target_var = "demand_gross") {
+  df %>%
+    mutate(
+      se = (.[[target_var]] - mean_pred)^2,
+      ds = (.[[target_var]] - mean_pred)^2 / sd_pred^2 + 2 * log(sd_pred),
+      mae = abs(.[[target_var]] - mean_pred),
+      rae = abs(.[[target_var]] - mean_pred) / abs(.[[target_var]]),
+      sr = (.[[target_var]] - mean_pred) / sd_pred,
+      log_score = -0.5 * log(2 * pi * sd_pred^2) - se / (2 * sd_pred^2)
+    ) %>%
+    group_by(monthindex) %>%
+    summarise(
+      mean_se = mean(se, na.rm = TRUE),
+      mean_ds = mean(ds, na.rm = TRUE),
+      mean_mae = mean(mae, na.rm = TRUE),
+      mean_rae = mean(rae, na.rm = TRUE),
+      mean_sr = mean(sr, na.rm = TRUE),
+      mean_log_score = mean(log_score, na.rm = TRUE),
+      .groups = "drop"
+    )
 }
+
   
+
 # Function to perform LOOCV for a given formula and dataset
 loocv_model <- function(data, formula) {
-  data <- data %>%
-    group_by(monthindex) %>%
-    group_modify(~ {
-      df <- .x
-      n <- nrow(df)
-      
-      # Initialize storage vectors 
-      mean_pred <- rep(NA_real_, n)
-      sd_pred <- rep(NA_real_, n)
-      
-      for (i in seq_len(n)) {
-        # Fit model leaving out the i-th observation
-        fit <- lm(formula, data = df[-i, , drop = FALSE])
-        
-        # Predict for the left-out observation
-        pred <- predict(fit, newdata = df[i, , drop = FALSE], se.fit = TRUE, interval = "prediction", level = 0.95)
-        
-        # Store mean prediction and standard deviation
-        mean_pred[i] <- pred$fit[,"fit"]
-        sd_pred[i] <- sqrt(pred$se.fit^2 + summary(fit)$sigma^2)
-      }
-      
-      df$mean_pred <- mean_pred
-      df$sd_pred <- sd_pred
-      return(df)
-    }) %>%
-    ungroup()
+  # Get all unique months
+  all_months <- unique(data$monthindex)
   
-  return(data)
-} 
+  # Initialize list to store results
+  results <- list()
+  
+  # Loop over each month
+  for (month in all_months) {
+    # Split data into training (all months except current) and test (current month)
+    train_data <- droplevels(subset(data, monthindex != month))
+    test_data <- subset(data, monthindex == month)
+    
+    # Fit model on training data
+    fit <- tryCatch(
+      lm(formula, data = train_data),
+      error = function(e) NULL
+    )
+    
+    # Predict on test data
+    if (!is.null(fit)) {
+      pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
+      
+      test_data$mean_pred <- pred$fit[, "fit"]
+      test_data$sd_pred <- sqrt(pred$se.fit^2 + summary(fit)$sigma^2)
+    } else {
+      # Fallback if model fails
+      test_data$mean_pred <- NA_real_
+      test_data$sd_pred <- NA_real_
+    }
+    
+    results[[as.character(month)]] <- test_data
+  }
+  
+  # Combine all results
+  result_df <- bind_rows(results)
+  return(result_df)
+}
 
 estimate_model_loocv <- function(data) {
   
@@ -123,24 +136,26 @@ estimate_model_loocv <- function(data) {
   result_basic <- loocv_model(data, formula_basic)
   result_year  <- loocv_model(data, formula_year)
 
-  error_basic <- compute_predictive_scores(data$demand_gross, result_basic$mean_pred, result_basic$sd_pred)
-  error_year  <- compute_predictive_scores(data$demand_gross, result_year$mean_pred, result_year$sd_pred)
+  result_basic$demand_gross <- data$demand_gross
+  result_year$demand_gross  <- data$demand_gross
   
   # Combine results into the dataset
-  results_df <- data.frame(
-    Model = c("Basic Model", "Year Model"),
-    Mean_SE = c(error_basic$mean_se, error_year$mean_se),
-    Mean_DS = c(error_basic$mean_ds, error_year$mean_ds),
-    Mean_MAE = c(error_basic$mean_mae, error_year$mean_mae),
-    Mean_RAE = c(error_basic$mean_rae, error_year$mean_rae),
-    Mean_SR = c(error_basic$mean_sr, error_year$mean_sr),
-    Mean_Log_Score = c(error_basic$mean_log_score, error_year$mean_log_score)
-  )
+  scores_basic <- compute_predictive_scores(result_basic)
+  scores_year  <- compute_predictive_scores(result_year)
   
-  return(results_df)
+  # Add model labels
+  scores_basic$model <- "Basic Model"
+  scores_year$model  <- "Year Model"
+  
+  # Combine all results
+  scores_all <- bind_rows(scores_basic, scores_year) %>%
+    select(model, monthindex, everything()) %>%
+    arrange(model, monthindex)
+  
+  return(scores_all)
 }
 
-# Apply LOOCV estimation to `data1`
+
 results_df <- estimate_model_loocv(data1)
 
 # View the first few rows of results
