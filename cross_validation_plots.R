@@ -7,7 +7,7 @@ library(ggplot2)
 theme_set(theme_bw())
 
 # Function to perform LOOCV for a given formula and dataset
-loocv_model <- function(data, formula) {
+monthly_loocv_model <- function(data, formula) {
   
   unique_months <- unique(data$monthindex)
   
@@ -34,7 +34,7 @@ loocv_model <- function(data, formula) {
   bind_rows(results)
 }
 
-estimate_model_loocv <- function(data, results) {
+monthly_estimate_model_loocv <- function(data, results) {
   
   # Compute predictive scores per month and per model
   monthly_scores <- results %>%
@@ -62,31 +62,42 @@ head(data1)
 # removing month 2
 data2 <- data1[data1$monthindex != 2, ]
 head(data2)
+# no outliers
+demand_no_outliers <- demand[demand$solar_S < 0.2,]
+best_no_outliers <- lm(demand_gross ~ wind + solar_S + TE + poly(wdayindex, 2) + poly(monthindex, 3) + poly(year, 3), data = demand_no_outliers)
+
 
 # Define model formulas
 formula_basic <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex
 formula_year  <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex + year
-formula_year_cubed <- demand_gross ~ 1 + wind + solar_S + TE + wdayindex + monthindex + poly(year, 3)^2
+formula_year_cubed <- demand_gross ~ (1 + wind + solar_S + TE + wdayindex + monthindex + poly(year, 3))^2
+formula_day_sq <- demand_gross ~ (1 + wind + solar_S + TE + poly(wdayindex, 2) + poly(monthindex, 3) + poly(year, 3))^2
+best_no_outliers_sqr <- lm(demand_gross ~ (wind + solar_S + TE + poly(wdayindex, 2) + poly(monthindex, 3) + poly(year, 3))^2, data = demand_no_outliers)
 
 # Perform LOOCV for each model using correct logic
-result_basic <- loocv_model(data1, formula_basic)
-result_year  <- loocv_model(data1, formula_year)
-result_year_cubed <- loocv_model(data1, formula_year_cubed)
+result_basic <- monthly_loocv_model(data1, formula_basic)
+result_year  <- monthly_loocv_model(data1, formula_year)
+result_year_cubed <- monthly_loocv_model(data1, formula_year_cubed)
+result_day_sq <- monthly_loocv_model(data1, formula_day_sq)
+result_no_outliers <- monthly_loocv_model(data1, best_no_outliers_sqr)
+
 
 # Add model label
 result_basic$model <- "Basic"
 result_year$model <- "Year"
-result_year_cubed$model <- "YearCubed"
+result_year_cubed$model <- "Year Cubed"
+result_day_sq$model <- "Day Squared"
+result_no_outliers$model <- "No Outliers"
 
 # Combine both results
-results_all <- bind_rows(result_basic, result_year, result_year_cubed)
+results_all <- bind_rows(result_basic, result_year, result_year_cubed, result_day_sq, result_no_outliers)
 results_all
 
-monthly_scores <- estimate_model_loocv(data1, results_all)
+monthly_scores <- monthly_estimate_model_loocv(data1, results_all)
 print(monthly_scores)
 
 # plotting actual and mean vs month for a single model at a time
-ggplot(result_year_cubed, aes(x = monthindex)) +
+ggplot(result_no_outliers, aes(x = monthindex)) +
   geom_point(aes(y = actual), color = "blue", alpha = 0.6, size = 3) +  # Actual values
   geom_point(aes(y = mean_pred), color = "red", alpha = 0.6, size = 3)
 
@@ -101,8 +112,8 @@ ggplot(results_all, aes(x = actual, y = mean_pred, color = model)) +
     subtitle = "Points represent predictions, dashed line represents perfect prediction"
   )
 
-# plotting actual vs mean for our best models
-ggplot(result_year_cubed, aes(x = actual, y = mean_pred, color = model)) +
+# plotting actual vs mean for our best model
+ggplot(result_no_outliers, aes(x = actual, y = mean_pred, color = model)) +
   geom_point(alpha = 0.2) +                      # Scatter plot of actual vs predicted
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
   labs(
@@ -123,7 +134,7 @@ ggplot(monthly_scores, aes(x = monthindex, y = mean_mae, color = model)) +
     y = "Mean MAE",
     subtitle = "Performance of different models over time"
   ) +
-  scale_color_manual(values = c("Basic" = "blue", "Year" = "green", "YearCubed" = "red"))
+  scale_color_manual(values = c("Basic" = "blue", "Year" = "green", "YearCubed" = "red", "Day Squared" = "purple", "No Outliers" = "orange"))
 
 # Plotting Mean RAE per month for each model
 ggplot(monthly_scores, aes(x = monthindex, y = mean_rae, color = model)) +
@@ -135,5 +146,47 @@ ggplot(monthly_scores, aes(x = monthindex, y = mean_rae, color = model)) +
     y = "Mean RAE",
     subtitle = "Performance of different models over time"
   ) +
-  scale_color_manual(values = c("Basic" = "blue", "Year" = "green", "YearCubed" = "red"))
+  scale_color_manual(values = c("Basic" = "blue", "Year" = "green", "YearCubed" = "red", "Day Squared" = "purple"))
 
+
+
+## cross validation for week, and weekday
+# Add day_type column: Weekday or Weekend
+data1$day_type <- ifelse(data1$wdayindex %in% c(1, 2, 3, 4, 5), "Weekday", "Weekend")
+
+# Function to perform LOOCV for a given formula and dataset
+daytype_loocv_model <- function(data, formula, day_type_filter) {
+  
+  # Filter data based on weekday or weekend
+  data_filtered <- data %>% filter(day_type == day_type_filter)
+  
+  results <- lapply(1:nrow(data_filtered), function(i) {
+    
+    # Split data into training and test set
+    train_data <- data_filtered[-i, ]   # All data except the ith row (training set)
+    test_data <- data_filtered[i, , drop = FALSE]  # Only the ith row (test set)
+    
+    # Fit the model on the training data
+    fit <- lm(formula, data = train_data)
+    
+    # Predict on the test data (the ith row)
+    pred <- predict(fit, newdata = test_data)
+    
+    # Store the actual and predicted values
+    data.frame(
+      actual = test_data$demand_gross,  # Actual value from test data
+      predicted = pred  # Predicted value
+    )
+  })
+  
+  # Combine results from all iterations
+  bind_rows(results)
+}
+
+formula_day_sq <- demand_gross ~ (1 + wind + solar_S + TE + poly(wdayindex, 2) + poly(monthindex, 3) + poly(year, 3))^2
+
+# Perform LOOCV for weekdays
+results_weekday <- daytype_loocv_model(data, formula_day_sq, day_type_filter = "Weekday")
+
+# Perform LOOCV for weekends
+results_weekend <- daytype_loocv_model(data, formula_day_sq, day_type_filter = "Weekend")
