@@ -17,3 +17,6 @@ m_0_year_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex
 m_0_year_cubed_te <- lm(demand_gross ~ wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + poly(year,3), data = demand)
 
 m_0_year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + poly(year, 3))^2, data = demand)
+
+best_no_factor <- lm(demand_gross ~ (wind + solar_S + TE + poly(wdayindex, 2) + monthindex + poly(year, 3))^2, data = demand)
+summary(best_no_factor)
