@@ -152,13 +152,14 @@ ggplot(monthly_scores, aes(x = monthindex, y = mean_rae, color = model)) +
 
 ## cross validation for week, and weekday
 # Add day_type column: Weekday or Weekend
-data1$day_type <- ifelse(data1$wdayindex %in% c(1, 2, 3, 4, 5), "Weekday", "Weekend")
+library(dplyr)
+data1$daytype <- ifelse(data1$wdayindex %in% c(0, 1, 2, 3, 4), "Weekday", "Weekend")
+demand_no_outliers$daytype <- ifelse(demand_no_outliers$wdayindex %in% c(0, 1, 2, 3, 4), "Weekday", "Weekend")
 
 # Function to perform LOOCV for a given formula and dataset
 daytype_loocv_model <- function(data, formula, day_type_filter) {
   
-  # Filter data based on weekday or weekend
-  data_filtered <- data %>% filter(day_type == day_type_filter)
+  data_filtered <- dplyr::filter(data, daytype == day_type_filter)
   
   results <- lapply(1:nrow(data_filtered), function(i) {
     
@@ -170,12 +171,15 @@ daytype_loocv_model <- function(data, formula, day_type_filter) {
     fit <- lm(formula, data = train_data)
     
     # Predict on the test data (the ith row)
-    pred <- predict(fit, newdata = test_data)
+    pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
+    mean_pred <- pred$fit[,"fit"]
     
     # Store the actual and predicted values
     data.frame(
+      wdayindex = data_filtered$wdayindex,
       actual = test_data$demand_gross,  # Actual value from test data
-      predicted = pred  # Predicted value
+      mean_pred = mean_pred,  # Predicted value
+      sd_pred = sqrt(pred$se.fit^2 + summary(fit)$sigma^2)  # Total predictive uncertainty
     )
   })
   
@@ -183,10 +187,47 @@ daytype_loocv_model <- function(data, formula, day_type_filter) {
   bind_rows(results)
 }
 
+
+daytype_estimate_model_loocv <- function(data, results) {
+  
+  # Compute predictive scores per month and per model
+  day_scores <- results %>%
+    group_by(model) %>%
+    summarise(
+      mean_se = mean((actual - mean_pred)^2),
+      mean_ds = mean((actual - mean_pred)^2 / sd_pred^2 + 2 * log(sd_pred), na.rm = TRUE),
+      mean_mae = mean(abs(actual - mean_pred), na.rm = TRUE),
+      mean_rae = mean(abs(actual - mean_pred) / abs(actual), na.rm = TRUE),
+      mean_sr = mean((actual - mean_pred) / sd_pred, na.rm = TRUE),
+      mean_log_score = mean(-0.5 * log(2 * pi * sd_pred^2) - 
+                              ((actual - mean_pred)^2 / (2 * sd_pred^2)), na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  return(day_scores)
+}
+
+formula_basic <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex
+formula_year  <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex + year
+formula_year_cubed <- demand_gross ~ (1 + wind + solar_S + TE + wdayindex + monthindex + poly(year, 3))^2
 formula_day_sq <- demand_gross ~ (1 + wind + solar_S + TE + poly(wdayindex, 2) + poly(monthindex, 3) + poly(year, 3))^2
+best_no_outliers_sqr <- lm(demand_gross ~ (wind + solar_S + TE + poly(wdayindex, 2) + poly(monthindex, 3) + poly(year, 3))^2, data = demand_no_outliers)
 
 # Perform LOOCV for weekdays
-results_weekday <- daytype_loocv_model(data, formula_day_sq, day_type_filter = "Weekday")
+weekend_day_sq <- daytype_loocv_model(demand_no_outliers, best_no_outliers_sqr, day_type_filter = "Weekend")
+weekday_day_sq <- daytype_loocv_model(demand_no_outliers, best_no_outliers_sqr, day_type_filter = "Weekday")
+weekend_day_sq$daytype <- "Weekend"
+weekday_day_sq$daytype <- "Weekday"
+no_outliers_result <- rbind(weekend_day_sq, weekday_day_sq)
 
-# Perform LOOCV for weekends
-results_weekend <- daytype_loocv_model(data, formula_day_sq, day_type_filter = "Weekend")
+# comparing prediction for weekends vs weekdays with our formula with no outliers
+ggplot(no_outliers_result, aes(x = actual, y = mean_pred, color = daytype)) +
+  geom_point(alpha = 0.2) +                      # Scatter plot of actual vs predicted
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
+  labs(
+    title = "Actual vs Predicted Demand",
+    x = "Actual Demand",
+    y = "Predicted Demand",
+    subtitle = "Points represent predictions, dashed line represents perfect prediction"
+  )
+
