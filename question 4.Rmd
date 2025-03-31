@@ -22,7 +22,7 @@ demand <- demand %>%
   mutate(
     Date = as.Date(Date),  # Convert character to Date
     day_month = format(Date, "%m-%d"),  # Extract month-day as "MM-DD"
-    mutate(day_of_month = lubridate::mday(Date)) # Eg numbers 1-31
+    day_of_month = lubridate::mday(Date) # Eg numbers 1-31
   )
 ```
 
