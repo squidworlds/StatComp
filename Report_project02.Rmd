@@ -28,10 +28,19 @@ set.seed(12345L)
 source("code.R")
 ```
 
-HELLLLOOOOO
-# Introduction
+# Introduction- brief
 
 This section provides a brief introduction to the task and the datasets used. The introduction is intended to be understood by NESO analysts with a scientific background but limited statistical expertise. You can assume that the reader of your report has read the executive summary. Briefly outline the overall approach taken in modeling future daily peak electricity demand, describe the main steps involved, and summarize the key conclusions drawn from the analysis.
+
+# Introduction- part completed
+
+Accurately forecasting future daily peak electricity demand is crucial for NESO's (National Electricity System Operator) planning and security of supply analysis. High demand events in winter pose the greatest risk of electricity shortfalls since cold weather increases energy consumption, so we are is particularly interested in modelling the upper tail of the demand distribution so NESO can better anticipate extreme scenarios and allocate reserves efficiently.
+
+In this report, we develop and evaluate a linear regression model to estimate future peak demand using historical electricity demand data and relevant explanatory variables, focusing on the winter months where there is highest risk. We begin with a baseline model $M_0$ incorporating key predictors such as wind and solar generation, temperature, and temporal factors. We then explore model refinements by incorporating additional covariates, considering adjustments for long-term trends and alternative temperature variables. In order to compare and select our best model, we discuss how well our model fits historic data, prediction accuracy and how peak demand varies under different weather conditions. To compare prediction accuracy, we construct a cross-validation scheme that computes prediction scores across months and then weekdays versus weekends.
+
+The final model is selected based on predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also discuss the limitations of the model and highlight areas for further improvement to enhance its accuracy and robustness.
+
+THIS NEEDS IMPROVEMENTS- include key conclusions drawn, maybe add intro about dataset.
 
 # Data description and exploratory analysis
 
