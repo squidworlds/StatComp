@@ -12,11 +12,6 @@ header-includes:
 ---
 
 ```{r setup, include = FALSE}
-# Modify this setup code chunk to set options
-# or add extra packages etc if needed.
-# See the project instructions for more details
-# on what code to show, and where/how.
-
 # Set default code chunk options
 knitr::opts_chunk$set(
   echo = TRUE,
@@ -26,23 +21,21 @@ knitr::opts_chunk$set(
 suppressPackageStartupMessages(library(tidyverse))
 theme_set(theme_bw())
 
-# To give the same random number sequence every time the document is knited,
-# making it easier to discuss the specific numbers in the text:
 set.seed(12345L)
 ```
 
 ```{r code=readLines("code.R"), eval=TRUE, echo=FALSE}
-# Do not change this code chunk
-# Load function definitions
 source("code.R")
 ```
 
-
+HELLLLOOOOO
 # Introduction
 
-This section provides a brief introduction to the task and the datasets used. The introduction is intended to be understood by NESO analysts with a scientific background but limited statistical expertise. You can assume that the reader of your report has read the executive summary. Briefly outline the overall approach taken in modeling future daily peak electricity demand, describe the main steps involved, and summarize the key conclusions drawn from the analysis.Hello this is me adding something here
+This section provides a brief introduction to the task and the datasets used. The introduction is intended to be understood by NESO analysts with a scientific background but limited statistical expertise. You can assume that the reader of your report has read the executive summary. Briefly outline the overall approach taken in modeling future daily peak electricity demand, describe the main steps involved, and summarize the key conclusions drawn from the analysis.
 
 # Data description and exploratory analysis
+
+I will add graphs and explanations. 
 
 Emphasis should be placed on the data features that are relevant for the subsequent modeling. Include visualizations that help illustrate key patterns or relationships. All plots must also be described in the write up. Think carefully about whether each plot needs to be included in your final draft. Your report should include figures and tables but they should be as focused and impactful as possible.
 
