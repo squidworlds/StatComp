@@ -89,6 +89,7 @@ m_0_year_cubed_te <- lm(demand_gross ~ wind + solar_S + TE + factor(wdayindex) +
 
 m_0_year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + poly(year, 3))^2, data = demand)
 
+
 m_0_year_cubed_te_squared_backward <- lm(demand_gross ~ wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + 
                                            poly(year, 3) + wind:factor(monthindex) + wind:poly(year, 3) + solar_S:factor(wdayindex) + solar_S:factor(monthindex) + 
                                            TE:factor(monthindex) + TE:poly(year, 3) + factor(wdayindex):factor(monthindex) + 
@@ -103,3 +104,12 @@ comparison_df
 
 ## backward stepwise regression
 backward_model <- step(m_0_year_cubed_te_squared, direction = "backward")
+best_no_factor <- lm(demand_gross ~ (wind + solar_S + TE + poly(wdayindex, 2) + monthindex + poly(year, 3))^2, data = demand)
+summary(best_no_factor)
+
+# Remove extreme outliers for month 11 and 2
+demand_no_outliers <- demand[demand$solar_S < 0.2,]
+best_no_outliers <- lm(demand_gross ~ wind + solar_S + TE + poly(wdayindex, 2) + poly(monthindex, 3) + poly(year, 3), data = demand_no_outliers)
+
+best_no_outliers_sqr <- lm(demand_gross ~ (wind + solar_S + TE + poly(wdayindex, 2) + poly(monthindex, 3) + poly(year, 3))^2, data = demand_no_outliers)
+

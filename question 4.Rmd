@@ -1,0 +1,99 @@
+---
+title: "question 4"
+author: "Ella Park"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 4
+
+How could the maximum annual demand have varied in the 2013-14 winter season if different weather
+conditions had occurred? For this you can investigate variation in the maximum annual demand
+in 2013/14 by inputting the weather conditions from previous winters (i.e. test weather in 1991/92,
+1992/93, ...)
+
+```{r dataframes}
+
+# 1. Prepare the base model ----------------------------------------------------
+# Using your original model specification
+demand_model <- lm(demand_gross ~ (wind + solar_S + TE + poly(day_of_month, 2) + poly(wdayindex, 2) + poly(monthindex, 3) + poly(start_year, 3))^2, data = demand)
+
+# 2. Prepare the data components -----------------------------------------------
+
+# Create 2013-14 temporal structure (without weather)
+demand_2013_structure <- demand %>%
+  filter(start_year == 2013) %>%
+  dplyr::select(Date, day_month, day_of_month, wdayindex, monthindex, start_year)
+
+# Get historical weather data (all years except 2013-14)
+historical_weather <- demand %>%
+  filter(start_year < 2013) %>%
+  dplyr::select(day_month, wind, solar_S, TE)
+
+# 3. Simulation function -------------------------------------------------------
+simulate_max_demand <- function(weather_year) {
+  # Get weather data for the specific year
+  yearly_weather <- demand %>%
+    filter(start_year == weather_year) %>%
+    dplyr::select(day_month, wind, solar_S, TE)
+  
+  # Combine with 2013-14 structure
+  combined_data <- demand_2013_structure %>%
+    left_join(yearly_weather, by = "day_month") %>%
+    mutate(
+      # Ensure polynomial terms match model requirements
+      poly_day_of_month_1 = poly(day_of_month, 2)[,1],
+      poly_day_of_month_2 = poly(day_of_month, 2)[,2],
+      poly_wdayindex_1 = poly(wdayindex, 2)[,1],
+      poly_wdayindex_2 = poly(wdayindex, 2)[,2],
+      poly_monthindex_1 = poly(monthindex, 3)[,1],
+      poly_monthindex_2 = poly(monthindex, 3)[,2],
+      poly_monthindex_3 = poly(monthindex, 3)[,3],
+      poly_start_year_1 = poly(start_year, 3)[,1],
+      poly_start_year_2 = poly(start_year, 3)[,2],
+      poly_start_year_3 = poly(start_year, 3)[,3]
+    )
+  
+  # Predict demand
+  combined_data$predicted_demand <- predict(demand_model, newdata = combined_data)
+  
+  # Return the maximum predicted demand
+  combined_data %>%
+    summarise(
+      simulated_year = 2013,
+      weather_year = weather_year,
+      max_demand = max(predicted_demand, na.rm = TRUE))
+}
+
+summary(demand$start_year)
+yearly_counts <- demand %>%
+  group_by(start_year) %>%
+  summarise(
+    n_days = n(),
+    unique_days = n_distinct(Date),
+    unique_months = n_distinct(month(Date)))
+    
+print(yearly_counts)
+```
+
+```{r does not work}
+# 4. Run simulations for all historical years ----------------------------------
+historical_years <- unique(demand$start_year[demand$start_year < 2013])
+
+# Run simulations (using map_df for efficiency)
+simulation_results <- purrr::map_df(historical_years, simulate_max_demand)
+
+# Add actual 2013-14 maximum for comparison
+actual_max_2013 <- demand %>%
+  filter(start_year == 2013) %>%
+  summarise(
+    simulated_year = 2013,
+    weather_year = 2013,
+    max_demand = max(demand_gross, na.rm = TRUE)
+  
+simulation_results <- bind_rows(simulation_results, actual_max_2013)
+```
