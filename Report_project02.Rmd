@@ -1,6 +1,6 @@
 ---
 title: "Modelling Peak Electricity Demand in Great Britain"
-author: "Group number, names of group members along with University usernames"
+author: "Group 50, Ella Park (s2311400),   ,    "
 output:
   html_document:
     number_sections: no
