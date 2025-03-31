@@ -16,6 +16,16 @@ conditions had occurred? For this you can investigate variation in the maximum a
 in 2013/14 by inputting the weather conditions from previous winters (i.e. test weather in 1991/92,
 1992/93, ...)
 
+```{r definitions}
+# First convert character Date to proper date format
+demand <- demand %>%
+  mutate(
+    Date = as.Date(Date),  # Convert character to Date
+    day_month = format(Date, "%m-%d"),  # Extract month-day as "MM-DD"
+    mutate(day_of_month = lubridate::mday(Date)) # Eg numbers 1-31
+  )
+```
+
 ```{r dataframes}
 
 # 1. Prepare the base model ----------------------------------------------------
