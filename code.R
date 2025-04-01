@@ -70,22 +70,24 @@ comparison <- function(lms, names, datalist){
 lm_predicting <- function(lm, data){
   
   # predict using the linear model
+  confidence <- predict.lm(object = lm, interval = "confidence", level = 0.95)
   prediction <- predict.lm(object = lm, newdata = data,
-                           se.fit = TRUE, interval = "both", level = 0.95)
+                           se.fit = TRUE, interval = "prediction", level = 0.95)
   
   # create dataframe with predicted data
-  pred <- as.data.frame(data)
+  results <- as.data.frame(data)
   
   # find mean, standard deviation and lower & upper bounds for the predicted data
-  pred$mean_pred <- prediction$fit[, "fit"]
-  pred$sd <- sqrt(prediction$se.fit^2 + prediction$residual.scale^2)
-  pred$lwr_pi <- prediction$fit[, "lwr"] - 1.96 * pred$sd
-  pred$upr_pi <- prediction$fit[, "upr"] + 1.96 * pred$sd
-  pred$lwr_ci <- prediction$fit[, "lwr"]
-  pred$upr_ci <- prediction$fit[, "upr"]
+  results$mean_pred <- prediction$fit[, "fit"]
+  results$sd <- sqrt(prediction$se.fit^2 + prediction$residual.scale^2)
+  results$lwr_pi <- prediction$fit[, "lwr"] - 1.96 * results$sd
+  results$upr_pi <- prediction$fit[, "upr"] + 1.96 * results$sd
+  results$mean_ci <- confidence[, "fit"]
+  results$lwr_ci <- confidence[, "lwr"]
+  results$upr_ci <- confidence[, "upr"]
   
   # create a dataframe with the analysed prediction data
-  p <- data.frame(mean_pred = pred$mean_pred, sd = pred$sd, lwr_pi = pred$lwr_pi, upr_pi = pred$upr_pic, lwr_ci = pred$lwr_ci, upr_ci = pred$upr_ci)
+  p <- data.frame(mean_pred = results$mean_pred, sd = results$sd, lwr_pi = results$lwr_pi, upr_pi = results$upr_pi, mean_conf = results$mean_ci, lwr_ci = results$lwr_ci, upr_ci = results$upr_ci)
   
   return(p)
 }
@@ -114,4 +116,73 @@ plotting <- function(prediction, data){
   
   return(pp)
 
+}
+
+#' Leave-One-Out Cross Validation
+#' 
+#' Using the data given and formula to cross validate our best model
+#' by splitting my month
+#' 
+#' @param data the given dataframe
+#' @param formula chosen linear model
+
+monthly_loocv_model <- function(data, formula) {
+  
+  months <- levels(data$month)
+  
+  # fill dataframe row-by-row with prediction derived from removing a month at a time
+  results <- lapply(months, function(test_month) {
+    
+    # divide 
+    train_data <- data %>% filter(month != test_month)
+    test_data  <- data %>% filter(month == test_month)
+    
+    fit <- lm(formula, data = train_data)
+    pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
+    
+    # Extract the predicted mean values, and lower and upper bounds
+    mean_pred <- pred$fit[, "fit"]
+    lwr_pi <- pred$fit[, "lwr"]
+    upr_pi <- pred$fit[, "upr"]
+    
+    # Filter the predicted means to keep only those greater than 4000
+    #mean_pred[mean_pred < 4000] <- NA
+    
+    data.frame(
+      month = test_month,
+      actual = test_data$demand_gross,
+      mean_pred = mean_pred,
+      sd_pred = sqrt(pred$se.fit^2 + summary(fit)$sigma^2),  # Total predictive uncertainty
+      lwr_pi = lwr_pi,
+      upr_pi = upr_pi
+    ) 
+  })
+  
+  bind_rows(results)
+}
+
+monthly_loocv_scores <- function(data, results) {
+  
+  # Compute predictive scores per month and per model
+  monthly_scores <- results %>%
+    group_by(model, month) %>%
+    summarise(
+      mean_se = mean((actual - mean_pred)^2),
+      mean_ds = mean((actual - mean_pred)^2 / sd_pred^2 + 2 * log(sd_pred), na.rm = TRUE),
+      mean_mae = mean(abs(actual - mean_pred), na.rm = TRUE),
+      mean_rae = mean(abs(actual - mean_pred) / abs(actual), na.rm = TRUE),
+      mean_sr = mean((actual - mean_pred) / sd_pred, na.rm = TRUE),
+      mean_log_score = mean(-0.5 * log(2 * pi * sd_pred^2) - 
+                              ((actual - mean_pred)^2 / (2 * sd_pred^2)), na.rm = TRUE),
+      mean_int = mean(
+        (upr_pi - lwr_pi) + 
+          (2 / 0.05) * ((lwr_pi - actual) * as.integer(actual < lwr_pi) + (2 / 0.05) * (actual - upr_pi) * as.integer(actual > upr_pi)),
+        na.rm = TRUE
+      ),
+        .groups = "drop"
+    )
+  
+  monthly_scores_df <- as.data.frame(monthly_scores)
+  
+  return(monthly_scores_df)
 }

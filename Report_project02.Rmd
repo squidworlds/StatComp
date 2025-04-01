@@ -72,9 +72,9 @@ Provide implementation details and include results from cross-validation or othe
 
 The model we are proposing is 
 
-$$Gross Demand \sim wind + solar\_S + TE + daytype + monthindex + Year + Year^2 + Year^3 + \varepsilon,$$
+$$Gross Demand \sim wind + solar\_S + TE + daytype + month + Year + Year^2 + Year^3 + \varepsilon,$$
 
-where $daytype$ is a factor variable distinguishing between weekday and weekend. 
+where $daytype$ is a factor variable taking values "weekday" and "weekend", and month is a factor variable taking values "Nov", "Dec", "Jan", "Feb" and "Mar". This is important as we cannot consider month and day as continuous variables in the given dataset.
 
 ##* Other Models Considered
 
@@ -91,11 +91,15 @@ demand$daytype <- factor(
   ifelse(demand$wdayindex %in% 0:4, "Weekday", "Weekend"),
   levels = c("Weekday", "Weekend")
 )
+demand$month <- factor(demand$monthindex,
+  levels = c(10, 11, 0, 1, 2), 
+  labels = c("Nov", "Dec", "Jan", "Feb", "Mar")
+)
 demand_no_outliers <- demand[demand$solar_S < 0.2,]
 
 
 # models we are considering
-m0 <- lm(demand_gross ~ wind + solar_S + temp + factor(wdayindex) + factor(monthindex), data = demand)
+m0 <- lm(demand_gross ~ wind + solar_S + temp + wdayindex + monthindex, data = demand)
 m0_year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + poly(year, 3))^2, data = demand)
 m0_daytype_outliers <- lm(demand_gross ~ wind + solar_S + temp + daytype + factor(monthindex), data = demand_no_outliers)
 year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + I(daytype)^2 + monthindex + poly(year, 3))^2, data = demand_no_outliers)
@@ -143,22 +147,59 @@ best_plot <- plotting(best_prediction, demand_no_outliers)
 
 # creating a dataset with predicted and actual data
 m0_data <- cbind(m0_prediction, demand)
+best_data <- cbind(best_prediction, demand_no_outliers)
 
 pp <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
-  # Confidence interval ribbon
-  geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci, fill = daytype), alpha = 0.2) +
-  # Prediction interval ribbon
-  geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi, fill = daytype), alpha = 0.3) +
-  # Line for mean predictions
-  geom_line(size = 1) +
   # Add points for actual data
-  geom_point(aes(y = demand_gross), alpha = 0.5, shape = 1)
+  geom_point() +
+  # Confidence interval ribbon
+  geom_ribbon(aes(ymin = lwr_ci, ymax = upr_ci, fill = daytype), alpha = 0.4) +
+  # Prediction interval ribbon
+  geom_ribbon(aes(ymin = lwr_pi, ymax = upr_pi, fill = daytype), alpha = 0.2) +
+  geom_smooth(method=lm, se=TRUE)
 ```
 
-```{r historical_plot, warning = FALSE, echo = FALSE, out.width="100%", cache = FALSE}
+```{r historical_plot, warning = FALSE, echo = TRUE, out.width="100%", cache = FALSE}
 pp
 ```
 
+## Cross-Validation
+
+Once we have tested on historical data, we can test the validity of our model by examining how well it predicts. One way of doing this is by performing cross-validation.
+
+First, it is important to note that our dataset now has $daytype$ and $month$ as factor variables. We will perform leave-one-out cross-validation over months to compare how the model predicts in the different winter months that we are given. 
+
+```{r loocv, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+m0_formula <- demand_gross ~ wind + solar_S + temp + wdayindex + monthindex
+m0_cv <- monthly_loocv_model(demand, m0_formula)
+m0_cv$model <- "m0"
+m0_scores <- monthly_loocv_scores(demand, m0_cv)
+knit_print.m0_scores <- lemon_print
+```
+
+```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
+head(m0_scores)
+```
+
+Do some score analysis here, check out tutorials 7,9,10 and lecture 7 slides.
+
+We can also examine graphs.
+
+```{r pred_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+# plotting actual and mean vs month for a single model at a time
+m0_scores <- ggplot(m0_cv, aes(x = actual, y = mean_pred, color = model)) +
+  geom_point(alpha = 0.2) +                      # Scatter plot of actual vs predicted
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
+  labs(
+    title = "Actual vs Predicted Demand",
+    x = "Actual Demand",
+    y = "Predicted Demand"
+    )
+```
+
+```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
+m0_scores
+```
 # Conslusion
 
 Summarize here the key insights from your analysis, focusing on the final model’s predictive performance, reliability, and practical relevance for NESO. Discuss the importance of the selected covariates, as well as any observed limitations or assumptions that should be considered when applying the model in practice.
