@@ -61,7 +61,8 @@ comparison <- function(lms, names, datalist){
 
 #' Historical Modelling
 #' 
-#' Testing our models on historical data
+#' Testing our models on historical data, finding confidence
+#' and prediction intervals
 #' 
 #' @param lm the linear model we are testing
 #' @param data the dataset that we are modelling on
@@ -70,19 +71,21 @@ lm_predicting <- function(lm, data){
   
   # predict using the linear model
   prediction <- predict.lm(object = lm, newdata = data,
-                           se.fit = TRUE, interval = "prediction", level = 0.95)
+                           se.fit = TRUE, interval = "both", level = 0.95)
   
   # create dataframe with predicted data
   pred <- as.data.frame(data)
   
   # find mean, standard deviation and lower & upper bounds for the predicted data
-  pred$mean <- prediction$fit[,1]
+  pred$mean_pred <- prediction$fit[, "fit"]
   pred$sd <- sqrt(prediction$se.fit^2 + prediction$residual.scale^2)
-  pred$lwr <- prediction$fit[,1] - 1.96 * pred$sd
-  pred$upr <- prediction$fit[,1] + 1.96 * pred$sd
+  pred$lwr_pi <- prediction$fit[, "lwr"] - 1.96 * pred$sd
+  pred$upr_pi <- prediction$fit[, "upr"] + 1.96 * pred$sd
+  pred$lwr_ci <- prediction$fit[, "lwr"]
+  pred$upr_ci <- prediction$fit[, "upr"]
   
   # create a dataframe with the analysed prediction data
-  p <- data.frame(mean = pred$mean, sd = pred$sd, lwr = pred$lwr, upr = pred$upr)
+  p <- data.frame(mean_pred = pred$mean_pred, sd = pred$sd, lwr_pi = pred$lwr_pi, upr_pi = pred$upr_pic, lwr_ci = pred$lwr_ci, upr_ci = pred$upr_ci)
   
   return(p)
 }

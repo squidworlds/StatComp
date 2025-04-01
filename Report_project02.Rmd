@@ -140,10 +140,23 @@ m0_plot <- plotting(m0_prediction, demand)
 
 best_prediction <- lm_predicting(best_no_outliers_sqr, demand_no_outliers)
 best_plot <- plotting(best_prediction, demand_no_outliers)
+
+# creating a dataset with predicted and actual data
+m0_data <- cbind(m0_prediction, demand)
+
+pp <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
+  # Confidence interval ribbon
+  geom_ribbon(aes(ymin = lower_ci, ymax = upper_ci, fill = daytype), alpha = 0.2) +
+  # Prediction interval ribbon
+  geom_ribbon(aes(ymin = lower_pi, ymax = upper_pi, fill = daytype), alpha = 0.3) +
+  # Line for mean predictions
+  geom_line(size = 1) +
+  # Add points for actual data
+  geom_point(aes(y = demand_gross), alpha = 0.5, shape = 1)
 ```
 
 ```{r historical_plot, warning = FALSE, echo = FALSE, out.width="100%", cache = FALSE}
-grid.arrange(m0_plot, best_plot, ncol = 2)
+pp
 ```
 
 # Conslusion
