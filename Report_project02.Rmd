@@ -1,6 +1,6 @@
 ---
 title: "Modelling Peak Electricity Demand in Great Britain"
-author: "Group 50, Ella Park (s2311400),   ,    "
+author: "Group 50, Ella Park (s2311400), Saioa Galvin(s2516907),"
 output:
   html_document:
     number_sections: no
@@ -19,12 +19,20 @@ knitr::opts_chunk$set(
 )
 
 suppressPackageStartupMessages(library(tidyverse))
-theme_set(theme_bw())
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(numDeriv))
+suppressPackageStartupMessages(library(mvtnorm))
+suppressPackageStartupMessages(library(gridExtra))
+suppressPackageStartupMessages(library(latex2exp))
+suppressPackageStartupMessages(library(lemon))
+theme_set(theme_bw(base_size = 9))
+
+demand <- read.csv("SCS_demand_modelling.csv")
 
 set.seed(12345L)
 ```
 
-```{r code=readLines("code.R"), eval=TRUE, echo=FALSE}
+```{r reading_code, code=readLines("code.R"), eval=TRUE, echo=FALSE}
 source("code.R")
 ```
 
@@ -62,6 +70,81 @@ In this section you should detail your choice of model and describe the process 
 
 Provide implementation details and include results from cross-validation or other model evaluation techniques, highlighting improvements and any trade-offs.
 
+The model we are proposing is 
+
+$$Gross Demand \sim wind + solar\_S + TE + daytype + monthindex + Year + Year^2 + Year^3 + \varepsilon,$$
+
+where $daytype$ is a factor variable distinguishing between weekday and weekend. 
+
+##* Other Models Considered
+
+Ella, would you be able to give more detail here about which models you were looking at please? e.g. how you chose the models you did.
+
+Backward selection?
+
+To evaluate the models we considered, we first looked at the R-Squared and Adjusted R_Squared scores, as well as the AIC (Akaike Information Criterion) and BIC (Bayesian Information Criterion) [should we mention these?] and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
+
+```{r comparing_models, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+
+# making daytype into a factor variable then taking out outliers
+demand$daytype <- factor(
+  ifelse(demand$wdayindex %in% 0:4, "Weekday", "Weekend"),
+  levels = c("Weekday", "Weekend")
+)
+demand_no_outliers <- demand[demand$solar_S < 0.2,]
+
+
+# models we are considering
+m0 <- lm(demand_gross ~ wind + solar_S + temp + factor(wdayindex) + factor(monthindex), data = demand)
+m0_year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + poly(year, 3))^2, data = demand)
+m0_daytype_outliers <- lm(demand_gross ~ wind + solar_S + temp + daytype + factor(monthindex), data = demand_no_outliers)
+year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + I(daytype)^2 + monthindex + poly(year, 3))^2, data = demand_no_outliers)
+best_no_outliers_sqr <- lm(demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(monthindex, 3) + poly(year, 3))^2, data = demand_no_outliers)
+
+# putting all these models into a vector for comparison
+lms <- list(m0, m0_year_cubed_te_squared, m0_daytype_outliers, year_cubed_te_squared, best_no_outliers_sqr)
+names <- c("m0", "Poly Year, TE, interactions", "m0, daytype factor, no outliers", "Poly Year, TE, interactions, no outliers", "final model")
+datalist <- list(demand, demand, demand_no_outliers, demand_no_outliers, demand_no_outliers)
+
+# creating the comparison table
+comparison_df <- comparison(lms, names, datalist)
+knit_print.comparison_df <- lemon_print
+
+```
+
+```{r comparison_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
+head(comparison_df)
+```
+
+The table above shows that... I want to do analysis of R^2 here but I will wait until we have our best model.
+
+##* Testing on Historical Data
+
+We can check how well the model fits historical data by creating predictions for the historical data, then plotting.
+
+```{r historical, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+# predicting on historical data using the function for all our linear models considered
+# predictions <- list()
+# 
+# for (i in 1:length(lms)){
+#   
+#   lm <- lms[[i]]
+#   data <- datalist[[i]]
+#   prediction <- append(predictions, lm_predicting(lm, data))
+#   
+# }
+
+# predicting for just m0 and our best model
+m0_prediction <- lm_predicting(m0, demand)
+m0_plot <- plotting(m0_prediction, demand)
+
+best_prediction <- lm_predicting(best_no_outliers_sqr, demand_no_outliers)
+best_plot <- plotting(best_prediction, demand_no_outliers)
+```
+
+```{r historical_plot, warning = FALSE, echo = FALSE, out.width="100%", cache = FALSE}
+grid.arrange(m0_plot, best_plot, ncol = 2)
+```
 
 # Conslusion
 
