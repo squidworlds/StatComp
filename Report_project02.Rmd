@@ -1,6 +1,6 @@
 ---
 title: "Modelling Peak Electricity Demand in Great Britain"
-author: "Group 50, Ella Park (s2311400),   ,    "
+author: "Group number, names of group members along with University usernames"
 output:
   html_document:
     number_sections: no
@@ -12,6 +12,11 @@ header-includes:
 ---
 
 ```{r setup, include = FALSE}
+# Modify this setup code chunk to set options
+# or add extra packages etc if needed.
+# See the project instructions for more details
+# on what code to show, and where/how.
+
 # Set default code chunk options
 knitr::opts_chunk$set(
   echo = TRUE,
@@ -21,40 +26,27 @@ knitr::opts_chunk$set(
 suppressPackageStartupMessages(library(tidyverse))
 theme_set(theme_bw())
 
+# To give the same random number sequence every time the document is knited,
+# making it easier to discuss the specific numbers in the text:
 set.seed(12345L)
 ```
 
 ```{r code=readLines("code.R"), eval=TRUE, echo=FALSE}
+# Do not change this code chunk
+# Load function definitions
 source("code.R")
 ```
 
-# Introduction- brief
+
+# Introduction
 
 This section provides a brief introduction to the task and the datasets used. The introduction is intended to be understood by NESO analysts with a scientific background but limited statistical expertise. You can assume that the reader of your report has read the executive summary. Briefly outline the overall approach taken in modeling future daily peak electricity demand, describe the main steps involved, and summarize the key conclusions drawn from the analysis.
 
-# Introduction- part completed
-
-Accurately forecasting future daily peak electricity demand is crucial for NESO's (National Electricity System Operator) planning and security of supply analysis. High demand events in winter pose the greatest risk of electricity shortfalls since cold weather increases energy consumption, so we are is particularly interested in modelling the upper tail of the demand distribution so NESO can better anticipate extreme scenarios and allocate reserves efficiently.
-
-The primary dataset used, \texttt{SCS_demand_modelling.csv}, contains historical daily peak electricity demand data for Great Britain, focusing on winter months. The data spans from 1st November 1991 to 31st March 2014. Each row represents a single day, describing electricity demand and capturing key factors that influence this including weather conditions and renewable energy generation.
-
-In this report, we develop and evaluate a linear regression model to estimate future peak demand using historical electricity demand data and relevant explanatory variables, focusing on the winter months where there is highest risk. We begin with a baseline model $M_0$ incorporating key predictors such as wind and solar generation, temperature, and temporal factors. We then explore model refinements by incorporating additional covariates, considering adjustments for long-term trends and alternative temperature variables. In order to compare and select our best model, we discuss how well our model fits historic data, prediction accuracy and how peak demand varies under different weather conditions. To compare prediction accuracy, we construct a cross-validation scheme that computes prediction scores across months and then weekdays versus weekends.
-
-The final model is selected based on predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also discuss the limitations of the model and highlight areas for further improvement to enhance its accuracy and robustness.
-
-THIS NEEDS IMPROVEMENTS- include key conclusions drawn
-
-# Data description and exploratory analysis- Brief
+# Data description and exploratory analysis
 
 Emphasis should be placed on the data features that are relevant for the subsequent modeling. Include visualizations that help illustrate key patterns or relationships. All plots must also be described in the write up. Think carefully about whether each plot needs to be included in your final draft. Your report should include figures and tables but they should be as focused and impactful as possible.
 
 Clearly describe all preprocessing steps, including any transformations or new variables created. If the additional dataset (`SCS_hourly_temp.csv` ) is used, provide a concise explanation of its structure and relevance to the analysis.
-
-# Data description and exploratory analysis- first draft
-
-A thorough understanding of the dataset is essential for building an effective forecasting model. This section explores key features relevant to modelling, highlighting important patterns through visualizations to inform model development and summarizes the preprocessing steps undertaken.
-
-We begin by examining the distribution of daily peak electricity demand and its relationship with key explanatory variables from our dataset, \texttt{SCS_demand_modelling.csv}. MOREEE
 
 # Model fitting and cross-validation results
 
