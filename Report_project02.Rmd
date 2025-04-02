@@ -24,7 +24,7 @@ suppressPackageStartupMessages(library(numDeriv))
 suppressPackageStartupMessages(library(mvtnorm))
 suppressPackageStartupMessages(library(gridExtra))
 suppressPackageStartupMessages(library(latex2exp))
-suppressPackageStartupMessages(library(lemon))
+suppressPackageStartupMessages(library(knitr))
 theme_set(theme_bw(base_size = 9))
 
 demand <- read.csv("SCS_demand_modelling.csv")
@@ -228,12 +228,12 @@ datalist <- list(demand, demand, demand_no_outliers, demand_no_outliers, demand_
 
 # creating the comparison table
 comparison_df <- comparison(lms, names, datalist)
-knit_print.comparison_df <- lemon_print
+colnames(comparison_df) <- c("$\\text{Model}$", "$R^2$", "$\\text{Adjusted } R^2$", "$\\text{AIC}$", "$\\text{BIC}$")
 
 ```
 
 ```{r comparison_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-head(comparison_df)
+kable(comparison_df, format = "latex", caption = "Model Comparison Metrics", escape = FALSE)
 ```
 
 The table above shows that... I want to do analysis of R^2 here but I will wait until we have our best model.
@@ -243,17 +243,6 @@ The table above shows that... I want to do analysis of R^2 here but I will wait 
 We can check how well the model fits historical data by creating predictions for the historical data, then plotting.
 
 ```{r historical, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
-# predicting on historical data using the function for all our linear models considered
-# predictions <- list()
-# 
-# for (i in 1:length(lms)){
-#   
-#   lm <- lms[[i]]
-#   data <- datalist[[i]]
-#   prediction <- append(predictions, lm_predicting(lm, data))
-#   
-# }
-
 # predicting for just m0 and our best model
 m0_prediction <- lm_predicting(m0, demand)
 m0_plot <- plotting(m0_prediction, demand)
@@ -264,6 +253,9 @@ best_plot <- plotting(best_prediction, demand_no_outliers)
 # creating a dataset with predicted and actual data
 m0_data <- cbind(m0_prediction, demand)
 best_data <- cbind(best_prediction, demand_no_outliers)
+
+# time?
+# pick an explanatory variable
 
 pp <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
   # Add points for actual data
@@ -286,36 +278,117 @@ Once we have tested on historical data, we can test the validity of our model by
 First, it is important to note that our dataset now has $daytype$ and $month$ as factor variables. We will perform leave-one-out cross-validation over months to compare how the model predicts in the different winter months that we are given. 
 
 ```{r loocv, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+source("code.R")
 m0_formula <- demand_gross ~ wind + solar_S + temp + wdayindex + monthindex
-m0_cv <- monthly_loocv_model(demand, m0_formula)
-m0_cv$model <- "m0"
-m0_scores <- monthly_loocv_scores(demand, m0_cv)
+m0_scores <- monthly_rolling_model(demand, m0_formula)
+m0_scores$model <- "m0"
+
+best_formula <- demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(month, 3) + poly(year, 3))^2
+best_scores <- monthly_rolling_model(demand_no_outliers, best_formula)
+best_scores$model <- "best"
+
+all_scores <- rbind(m0_scores, best_scores)
 knit_print.m0_scores <- lemon_print
 ```
 
 ```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-head(m0_scores)
+head(all_scores)
 ```
 
 Do some score analysis here, check out tutorials 7,9,10 and lecture 7 slides.
 
 We can also examine graphs.
 
-```{r pred_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+```{r reg_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 # plotting actual and mean vs month for a single model at a time
-m0_scores <- ggplot(m0_cv, aes(x = actual, y = mean_pred, color = model)) +
+reg_plot <- ggplot(all_scores, aes(x = actual, y = mean, color = model)) +
   geom_point(alpha = 0.2) +                      # Scatter plot of actual vs predicted
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
+  facet_wrap(~month) +
   labs(
     title = "Actual vs Predicted Demand",
     x = "Actual Demand",
     y = "Predicted Demand"
     )
+
+
 ```
 
-```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-m0_scores
+```{r reg_plot, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
+reg_plot
 ```
+
+This is not a very good plot because there are some very far away points... what's going on?
+
+```{r scores_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+se_plot <- ggplot(all_scores, aes(
+  x = actual, 
+  y = se, 
+  color = model
+  )) +
+geom_point()
+
+ds_plot <- ggplot(all_scores, aes(
+  x = actual, 
+  y = ds, 
+  color = model
+  )) +
+geom_point()
+```
+
+```{r scores_plot, warning = FALSE, echo = TRUE, out.width="50%", cache = FALSE}
+grid.arrange(se_plot, ds_plot, ncol = 2)
+```
+
+## Exchangeability Test
+
+``` {r exchange, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+
+# create a dataframe to find the difference between scores for different models
+
+score_diff <- all_scores %>%
+  filter(model %in% c("m0", "best")) %>%        # Filter for model1 and model2
+  pivot_wider(names_from = model, values_from = c(se, ds)) %>%  # Reshape the data (se and ds for model1 and model2 in separate columns)
+  mutate(
+    se = se_m0 - se_best,  # Calculate the difference for se
+    ds = ds_m0 - ds_best   # Calculate the difference for ds
+  )
+
+statistic0 <- score_diff %>% 
+  summarise(se = mean(se), 
+            ds = mean(ds))
+
+
+# number of iterations
+J <- 10000
+
+# initialise dataframe
+statistic <- data.frame(se = numeric(J),
+                        ds = numeric(J))
+
+# loop over randomisation samples
+for (loop in seq_len(J)) {
+  
+  # sample random sign changes
+  random_sign <- sample(c(-1, 1), 
+                        size = nrow(score_diff), 
+                        replace = TRUE)
+  
+  statistic[loop, ] <- score_diff %>% 
+    summarise(se = mean(random_sign * se),
+              ds = mean(random_sign * ds))
+}
+
+# now find the p values
+p_values <- statistic %>%
+  summarise(se = mean(se > statistic0$se),
+            ds = mean(ds > statistic0$ds))
+
+# Estimates:
+p_values
+
+```
+
 # Conslusion
 
 Summarize here the key insights from your analysis, focusing on the final model’s predictive performance, reliability, and practical relevance for NESO. Discuss the importance of the selected covariates, as well as any observed limitations or assumptions that should be considered when applying the model in practice.
