@@ -25,6 +25,7 @@ suppressPackageStartupMessages(library(mvtnorm))
 suppressPackageStartupMessages(library(gridExtra))
 suppressPackageStartupMessages(library(latex2exp))
 suppressPackageStartupMessages(library(kableExtra))
+suppressPackageStartupMessages(library(viridis))
 theme_set(theme_bw(base_size = 9))
 
 demand <- read.csv("SCS_demand_modelling.csv")
