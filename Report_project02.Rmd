@@ -24,7 +24,7 @@ suppressPackageStartupMessages(library(numDeriv))
 suppressPackageStartupMessages(library(mvtnorm))
 suppressPackageStartupMessages(library(gridExtra))
 suppressPackageStartupMessages(library(latex2exp))
-suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(kableExtra))
 theme_set(theme_bw(base_size = 9))
 
 demand <- read.csv("SCS_demand_modelling.csv")
@@ -112,6 +112,7 @@ year_plot <- ggplot(demand, aes(x=year, y=demand_gross)) +
 
 grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_plot, ncol = 2)
 ```
+
 The first plot is a scatter graph between the wind capacity factor and the daily peak electricity demand indicates a weak relationship, suggesting wind generation has only a minimal impact on peak demand. This is expected, as wind generation may not correlate strong with demand peaks, which are often influenced more by factors like temperature. In terms of modelling, the wind variable may not be a significant predictor and the regression coefficient is likely to be small. To analyse this, we check the coefficient and statistical significance in the p-value in our models (MAYBE INCLUDE VALUES?). Additionally, we use the $\texttt{step}$ function in R to perform backward stepwise regression. This method iteratively removes variables that variables that do not contribute significantly to the model, based on the Akaike Information Criterion (AIC). Later in this report, we see that wind is included in the final model, therefore the AIC does not improve upon its removal. This would indicate it holds some importance for predicting demand, even if the relationship is weak.
 
 Solar ahhhh
@@ -137,6 +138,7 @@ year_cubic <- ggplot(demand, aes(x=year, y=demand_gross)) +
 
 grid.arrange(year_quadratic, year_cubic, ncol = 2)
 ```
+
 Next we investigate the effect of categorical on peak demand by analyzing its variation across different days of the week and months using violin plots.
 
 ## Categorical variables EDA
@@ -179,7 +181,9 @@ weekdays_stats <- data.frame(
 )
 kable(weekdays_stats, caption = "Median and Quartiles for Each Day of the Week", align = "c", format = "markdown")
 ```
+
 Friday stands out with slightly lower peak demand compared to other weekdays. Its median is nearly 2,000 MW lower than the average of the other weekdays which could be attributed to reduced business activity as the weekend approaches.
+
 # Model fitting and cross-validation results
 
 In this section you should detail your choice of model and describe the process used to refine and fit the model. You are encouraged to explore different models methods but you should not include a detailed narrative of all of these attempts. For instance, you can mention the approaches you tried tried and include a comparison but do not add in depth discussions of these models beyond why they were rejected. This section should mention the methods explored and why they were rejected, but most of your effort should go into describing the model you are using and your process for tuning and validating it.
@@ -188,17 +192,17 @@ Provide implementation details and include results from cross-validation or othe
 
 The model we are proposing is 
 
-$$Gross Demand \sim wind + solar\_S + TE + daytype + month + Year + Year^2 + Year^3 + \varepsilon,$$
+$$Gross Demand \sim wind + solar\_S + TE + daytype + month + start_year + start_year^2 + start_year^3 + \varepsilon,$$
 
 where $daytype$ is a factor variable taking values "weekday" and "weekend", and month is a factor variable taking values "Nov", "Dec", "Jan", "Feb" and "Mar". This is important as we cannot consider month and day as continuous variables in the given dataset.
 
-##* Other Models Considered
+## Other Models Considered
 
 Ella, would you be able to give more detail here about which models you were looking at please? e.g. how you chose the models you did.
 
 Backward selection?
 
-To evaluate the models we considered, we first looked at the R-Squared and Adjusted R_Squared scores, as well as the AIC (Akaike Information Criterion) and BIC (Bayesian Information Criterion) [should we mention these?] and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
+To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R_Squared scores, as well as the AIC (Akaike Information Criterion) and BIC (Bayesian Information Criterion) [should we mention these?] and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
 
 ```{r comparing_models, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -211,65 +215,104 @@ demand$month <- factor(demand$monthindex,
   levels = c(10, 11, 0, 1, 2), 
   labels = c("Nov", "Dec", "Jan", "Feb", "Mar")
 )
-demand_no_outliers <- demand[demand$solar_S < 0.2,]
 
 
 # models we are considering
-m0 <- lm(demand_gross ~ wind + solar_S + temp + wdayindex + monthindex, data = demand)
-m0_year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex) + factor(monthindex) + poly(year, 3))^2, data = demand)
-m0_daytype_outliers <- lm(demand_gross ~ wind + solar_S + temp + daytype + factor(monthindex), data = demand_no_outliers)
-year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + I(daytype)^2 + monthindex + poly(year, 3))^2, data = demand_no_outliers)
-best_no_outliers_sqr <- lm(demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(monthindex, 3) + poly(year, 3))^2, data = demand_no_outliers)
+m0 <- lm(demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex, data = demand)
+m0_year_cubed_te_squared <- lm(demand_gross ~ (1 + wind + solar_S + TE + daytype + month + poly(start_year, 3))^2, data = demand)
+m0_daytype_outliers <- lm(demand_gross ~ 1 + wind + solar_S + temp + daytype + month, data = demand)
+year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + I(daytype)^2 + month + poly(start_year, 3))^2, data = demand)
+best <- lm(demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(month, 3) + poly(start_year, 3))^2, data = demand)
 
 # putting all these models into a vector for comparison
 lms <- list(m0, m0_year_cubed_te_squared, m0_daytype_outliers, year_cubed_te_squared, best_no_outliers_sqr)
 names <- c("m0", "Poly Year, TE, interactions", "m0, daytype factor, no outliers", "Poly Year, TE, interactions, no outliers", "final model")
-datalist <- list(demand, demand, demand_no_outliers, demand_no_outliers, demand_no_outliers)
 
 # creating the comparison table
-comparison_df <- comparison(lms, names, datalist)
-colnames(comparison_df) <- c("$\\text{Model}$", "$R^2$", "$\\text{Adjusted } R^2$", "$\\text{AIC}$", "$\\text{BIC}$")
+comparison_df <- comparison(lms, names, demand)
+colnames(comparison_df) <- c("Model", "$\\R^2$", "Adjusted $R^2$", "AIC", "BIC")
 
 ```
 
 ```{r comparison_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-kable(comparison_df, format = "latex", caption = "Model Comparison Metrics", escape = FALSE)
+kable(comparison_df, format = "latex", caption = "Model Comparison Metrics", escape = FALSE) %>%
+  kable_styling(latex_options = c("striped", "HOLD_position"))
 ```
 
-The table above shows that... I want to do analysis of R^2 here but I will wait until we have our best model.
+The table above shows that... I want to do analysis of R^2 here but I will wait until we have our best model. Talk about what each metric means.
 
-##* Testing on Historical Data
+## Testing on Historical Data
 
-We can check how well the model fits historical data by creating predictions for the historical data, then plotting.
+As well as metrics, the validity of our model can be shown by testing on historical data.
 
 ```{r historical, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 # predicting for just m0 and our best model
 m0_prediction <- lm_predicting(m0, demand)
 m0_plot <- plotting(m0_prediction, demand)
 
-best_prediction <- lm_predicting(best_no_outliers_sqr, demand_no_outliers)
-best_plot <- plotting(best_prediction, demand_no_outliers)
+best_prediction <- lm_predicting(best, demand)
+best_plot <- plotting(best_prediction, demand)
 
 # creating a dataset with predicted and actual data
 m0_data <- cbind(m0_prediction, demand)
-best_data <- cbind(best_prediction, demand_no_outliers)
+best_data <- cbind(best_prediction, demand)
 
 # time?
 # pick an explanatory variable
 
-pp <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
-  # Add points for actual data
-  geom_point() +
-  # Confidence interval ribbon
-  geom_ribbon(aes(ymin = lwr_ci, ymax = upr_ci, fill = daytype), alpha = 0.4) +
-  # Prediction interval ribbon
-  geom_ribbon(aes(ymin = lwr_pi, ymax = upr_pi, fill = daytype), alpha = 0.2) +
-  geom_smooth(method=lm, se=TRUE)
+m0_historical_daytype <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = lm, se = TRUE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    title = "Modelling m0 For Historical Demand",  # Title
+    x = "Actual Demand (Gross)",  # X-axis label
+    y = "Predicted Demand (Mean)",  # Y-axis label
+    color = "Day type"  # Color legend label
+  )
+
+best_historical_daytype <- ggplot(best_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = lm, se = TRUE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    title = "Final Model For Historical Demand",  # Title
+    x = "Actual Demand (Gross)",  # X-axis label
+    y = "Predicted Demand (Mean)",  # Y-axis label
+    color = "Day type"  # Color legend label
+  )
+
+m0_historical_month <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, color = month)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = lm, se = TRUE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    title = "Modelling m0 For Historical Demand",  # Title
+    x = "Actual Demand (Gross)",  # X-axis label
+    y = "Predicted Demand (Mean)",  # Y-axis label
+    color = "Month"  # Color legend label
+  )
+
+best_historical_month <- ggplot(best_data, aes(x = demand_gross, y = mean_pred, color = month)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = lm, se = TRUE) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    title = "Final Model For Historical Demand",  # Title
+    x = "Actual Demand (Gross)",  # X-axis label
+    y = "Predicted Demand (Mean)",  # Y-axis label
+    color = "Month"  # Color legend label
+  )
 ```
 
 ```{r historical_plot, warning = FALSE, echo = TRUE, out.width="100%", cache = FALSE}
-pp
+grid.arrange(m0_historical_daytype, best_historical_daytype, m0_historical_month, best_historical_month, ncol = 2)
 ```
+
+We'll want to include residuals plots here.
+
+### Residuals
+
 
 ## Cross-Validation
 
@@ -279,20 +322,31 @@ First, it is important to note that our dataset now has $daytype$ and $month$ as
 
 ```{r loocv, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 source("code.R")
-m0_formula <- demand_gross ~ wind + solar_S + temp + wdayindex + monthindex
+m0_formula <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex
 m0_scores <- monthly_rolling_model(demand, m0_formula)
 m0_scores$model <- "m0"
 
 best_formula <- demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(month, 3) + poly(year, 3))^2
-best_scores <- monthly_rolling_model(demand_no_outliers, best_formula)
+best_scores <- monthly_rolling_model(demand, best_formula)
 best_scores$model <- "best"
 
 all_scores <- rbind(m0_scores, best_scores)
-knit_print.m0_scores <- lemon_print
+
+m0_sample <- all_scores %>%
+  filter(model == "m0") %>%     # Filter for 'm0' model
+  sample_n(5, replace = FALSE)
+
+best_sample <- all_scores %>%
+  filter(model == "best") %>%   # Filter for 'best' model
+  sample_n(5, replace = FALSE)
+
+combined_sample <- rbind(m0_sample, best_sample) %>%
+  arrange(model, year, month) %>%
+  group_by(model)
 ```
 
 ```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-head(all_scores)
+kable(combined_sample)
 ```
 
 Do some score analysis here, check out tutorials 7,9,10 and lecture 7 slides.
@@ -302,19 +356,20 @@ We can also examine graphs.
 ```{r reg_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 # plotting actual and mean vs month for a single model at a time
 reg_plot <- ggplot(all_scores, aes(x = actual, y = mean, color = model)) +
-  geom_point(alpha = 0.2) +                      # Scatter plot of actual vs predicted
+  geom_point(alpha = 0.4) +                      # Scatter plot of actual vs predicted
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
   facet_wrap(~month) +
   labs(
     title = "Actual vs Predicted Demand",
     x = "Actual Demand",
-    y = "Predicted Demand"
+    y = "Predicted Demand",
+    color = "Model"
     )
 
 
 ```
 
-```{r reg_plot, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
+```{r reg_plot, warning = FALSE, echo=TRUE, cache = FALSE}
 reg_plot
 ```
 
@@ -336,7 +391,7 @@ ds_plot <- ggplot(all_scores, aes(
 geom_point()
 ```
 
-```{r scores_plot, warning = FALSE, echo = TRUE, out.width="50%", cache = FALSE}
+```{r scores_plot, warning = FALSE, echo = TRUE, cache = FALSE}
 grid.arrange(se_plot, ds_plot, ncol = 2)
 ```
 

@@ -10,7 +10,7 @@
 #' @param names names of the linear models we are comparing
 #' @param datalist a list of the data that we are using for each model in lms
 
-comparison <- function(lms, names, datalist){
+comparison <- function(lms, names, data){
   
   # Initialise a dataframe for the results
   results <- data.frame(
@@ -29,7 +29,7 @@ comparison <- function(lms, names, datalist){
     # Extract models and names from the inputted dataframe
     model <- lms[[i]]
     model_name <- names[i]
-    data <- datalist[[i]]
+    data <- data
     
     # Calculate R-squared and Adjusted R-squared
     model_summary <- summary(model)
@@ -161,6 +161,16 @@ plotting <- function(prediction, data){
 #   bind_rows(results)
 # }
 
+
+#' Rolling Cross-Validation
+#' 
+#' Using a 3-1 year split, based on start_year, the year that each winter in the
+#' dataset starts. Predicting the demand for the next year based on the previous
+#' 3 years
+#' 
+#' @param data the dataframe we are modelling over
+#' @param formula the formula of the chosen linear model
+
 monthly_rolling_model <- function(data, formula) {
   
   # initialise a dataframe for storing everything
@@ -202,15 +212,15 @@ monthly_rolling_model <- function(data, formula) {
     new_row <- data.frame(
       year = test_year,
       month = test_data$month,
-      daytype = test_data$daytype,
       actual = actual,
+      mean = mean_pi,
       se = se_pi,
       ds = ds_pi,
       int = int_pi,
-      mean = mean_pi,
       sd = sd_pi,
       lwr = lwr_pi,
-      upr = upr_pi
+      upr = upr_pi,
+      daytype = test_data$daytype
     )
     
     scores <- rbind(scores, new_row)
