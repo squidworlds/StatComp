@@ -60,8 +60,6 @@ Clearly describe all preprocessing steps, including any transformations or new v
 
 # Data description and exploratory analysis- first draft
 
-# Data description and exploratory analysis- frist draft
-
 A thorough understanding of the dataset is essential for building an effective forecasting model. This section explores key features relevant to modelling, highlighting important patterns through visualizations to inform model development and summarizes the preprocessing? steps undertaken.
 
 We begin by analyzing the continuous variables from our dataset and their relationship to peak electricity demand. The key predictors to explore are:
@@ -119,7 +117,7 @@ Solar ahhhh
 
 Both the scatter plots of temperature and TE against demand gross show a negative correlation where higher temperatures generally correspond to a lower electricity demand. This relationship makes intuitive sense, as warmer temperatures tend to reduce the need for heating, which is a significant factor in electricity demand during colder months. Given the clear consistent negative correlation, it was important to include one temperature variable in the model.
 
-Both temp and TE cannot be included in the model since they are based on very similar temperature data. Including both variables would introduce multicolliniarity which could affect the regression results so we only select one. TE shows slightly less variation in demand compared to temp which includes on temperature at 6pm that day. This is because TE includes data from the day before, effectively smoothing out the fluctuations in temperature and providing a more stable representation of the temperature's influence on demand. This smoothing effect should help the model to capture long term temperature trends better than temperature alone, as it captures the lag in temperatures effect on energy. This helps to provide the hypothesis that TE is a more valuable measure of temperature than the temp variable. Subsequent analysis will provide evidence to support this.
+Both temp and TE variables cannot be included in the model since they are based on very similar temperature data. Including both variables would introduce multicolliniarity which could affect the regression results so we only select one. TE shows slightly less variation in demand compared to temp which includes on temperature at 6pm that day. This is because TE includes data from the day before, effectively smoothing out the fluctuations in temperature and providing a more stable representation of the temperature's influence on demand. This smoothing effect should help the model to capture long term temperature trends better than temperature alone, as it captures the lag in temperatures effect on energy. This helps to provide the hypothesis that TE is a more valuable measure of temperature than the temp variable. Subsequent analysis will provide evidence to support this.
 
 The plot between year and peak demand reveals a correlation, suggesting that demand increases over time. However from this it is evident the relationship is more complex than a simple linear trend, following a cubic pattern. This implies that the the effect of the year variable on demand is not constant and changes as time progresses. There are a variety of reasons which this occurs such as reflecting long-term trends in energy usage, economic growth, policy changes or technological advancements. The following graphs visualize this hypothesis to assess whether a quadratic or cubic term improves the model's fit compared to the linear one.
 
@@ -140,10 +138,6 @@ grid.arrange(year_quadratic, year_cubic, ncol = 2)
 ```
 
 Next we investigate the effect of categorical on peak demand by analyzing its variation across different days of the week and months using violin plots.
-
-## Categorical variables EDA
-
-We compare these using violin plots.
 
 ```{r violin, echo=FALSE, warning=FALSE}
 # Day of week
@@ -182,7 +176,11 @@ weekdays_stats <- data.frame(
 kable(weekdays_stats, caption = "Median and Quartiles for Each Day of the Week", align = "c", format = "markdown")
 ```
 
-Friday stands out with slightly lower peak demand compared to other weekdays. Its median is nearly 2,000 MW lower than the average of the other weekdays which could be attributed to reduced business activity as the weekend approaches.
+Friday stands out with slightly lower peak demand compared to other weekdays. Its median is nearly 2,000 MW lower than the average of the other weekdays which could be attributed to reduced business activity as the weekend approaches. In terms of weekday behavior, there is considerable overlap between the days. The medians for these days are quite close, indicating that demand is fairly consistent throughout the workweek. When comparing weekdays to weekends, there is a clear difference in the median values. Weekdays have a higher median peak demand around 52,000, while weekends show lower values of 45,000.
+
+Including day of the week as a factor variable in the model ensures that all variations in demand across different days are incorporated into the model. This allows the regression to account for differences in peak demand as well as any subtle variations between individual weekdays. This should help the model more effectively capture demand patterns without oversimplifying the structure of the data. These differences lead us to hypothesise that this variable will be useful in the model and statistically significant. Our later analysis will confirm this. 
+
+The next step is to explore interactions that can help improve the model accuracy. Interactions allow us to capture relationships where the effect of one variable on peak demand depends on the value of another.
 
 # Model fitting and cross-validation results
 
