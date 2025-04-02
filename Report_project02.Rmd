@@ -24,7 +24,7 @@ suppressPackageStartupMessages(library(numDeriv))
 suppressPackageStartupMessages(library(mvtnorm))
 suppressPackageStartupMessages(library(gridExtra))
 suppressPackageStartupMessages(library(latex2exp))
-suppressPackageStartupMessages(library(lemon))
+suppressPackageStartupMessages(library(knitr))
 theme_set(theme_bw(base_size = 9))
 
 demand <- read.csv("SCS_demand_modelling.csv")
@@ -44,13 +44,13 @@ This section provides a brief introduction to the task and the datasets used. Th
 
 Accurately forecasting future daily peak electricity demand is crucial for NESO's (National Electricity System Operator) planning and security of supply analysis. High demand events in winter pose the greatest risk of electricity shortfalls since cold weather increases energy consumption, so we are is particularly interested in modelling the upper tail of the demand distribution so NESO can better anticipate extreme scenarios and allocate reserves efficiently.
 
-The primary dataset used, `SCS_demand_modelling.csv`, contains historical daily peak electricity demand data for Great Britain, focusing on winter months. The data spans from 1st November 1991 to 31st March 2014. Each row represents a single day, describing electricity demand and capturing key factors that influence this including weather conditions and renewable energy generation.
+The primary dataset used, \texttt{SCS_demand_modelling.csv}, contains historical daily peak electricity demand data for Great Britain, focusing on winter months. The data spans from 1st November 1991 to 31st March 2014. Each row represents a single day, describing electricity demand and capturing key factors that influence this including weather conditions and renewable energy generation.
 
 In this report, we develop and evaluate a linear regression model to estimate future peak demand using historical electricity demand data and relevant explanatory variables, focusing on the winter months where there is highest risk. We begin with a baseline model $M_0$ incorporating key predictors such as wind and solar generation, temperature, and temporal factors. We then explore model refinements by incorporating additional covariates, considering adjustments for long-term trends and alternative temperature variables. In order to compare and select our best model, we discuss how well our model fits historic data, prediction accuracy and how peak demand varies under different weather conditions. To compare prediction accuracy, we construct a cross-validation scheme that computes prediction scores across months and then weekdays versus weekends.
 
 The final model is selected based on predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also discuss the limitations of the model and highlight areas for further improvement to enhance its accuracy and robustness.
 
-?THIS NEEDS IMPROVEMENTS- include key conclusions drawn
+THIS NEEDS IMPROVEMENTS- include key conclusions drawn
 
 # Data description and exploratory analysis- Brief
 
@@ -60,126 +60,10 @@ Clearly describe all preprocessing steps, including any transformations or new v
 
 # Data description and exploratory analysis- first draft
 
-# Data description and exploratory analysis- frist draft
+A thorough understanding of the dataset is essential for building an effective forecasting model. This section explores key features relevant to modelling, highlighting important patterns through visualizations to inform model development and summarizes the preprocessing steps undertaken.
 
-A thorough understanding of the dataset is essential for building an effective forecasting model. This section explores key features relevant to modelling, highlighting important patterns through visualizations to inform model development and summarizes the preprocessing? steps undertaken.
+We begin by examining the distribution of daily peak electricity demand and its relationship with key explanatory variables from our dataset, \texttt{SCS_demand_modelling.csv}. MOREEE
 
-We begin by analyzing the continuous variables from our dataset and their relationship to peak electricity demand. The key predictors to explore are:
-
--   Response variables: demand_gross (MW)- Peak electricity demand
-
--   Explanatory variables:
-
-    -   Weather factors: wind, solar_S, TE
-
-    -   Temporal trends: year
-
-```{r demand  scatters, echo=FALSE, warning=FALSE}
-# Wind vs demand
-wind_plot <- ggplot(demand, aes(x=wind, y=demand_gross)) +
-  geom_point(alpha=0.5, color="darkgreen") +
-  geom_smooth(method="lm", color="red") +
-  labs(title="Peak Demand vs Wind Capacity Factor", x="Wind Capacity Factor", y="Peak Demand (MW)") +
-  theme_bw()
-
-# Solar vs demand
-solar_plot <- ggplot(demand, aes(x=solar_S, y=demand_gross)) +
-  geom_point(alpha=0.5, color="darkorange") +
-  geom_smooth(method="lm", color="red") +
-  labs(title="Peak Demand vs Solar Capacity Factor", x="Solar Capacity Factor", y="Peak Demand (MW)") +
-  theme_bw()
-
-# Temp vs demand- shows negative correlation
-temp_plot <- ggplot(demand, aes(x=temp, y=demand_gross)) +
-   geom_point(alpha=0.5, color="darkgoldenrod") +
-   geom_smooth(method="lm", color="red") +
-   labs(title="Peak Demand vs Temperature", x="Temperature (°C)", y="Peak Demand (MW)") +
-   theme_bw()
-
-# TE vs demand- shows negative correlation
-te_plot <- ggplot(demand, aes(x=TE, y=demand_gross)) +
-   geom_point(alpha=0.5, color="steelblue") +
-   geom_smooth(method="lm", color="red") +
-   labs(title="Peak Demand vs TE", x="Temperature (°C)", y="Peak Demand (MW)") +
-   theme_bw()
-
-# Year vs demand- shows negative correlation
-year_plot <- ggplot(demand, aes(x=year, y=demand_gross)) +
-   geom_point(alpha=0.5, color="darkmagenta") +
-   geom_smooth(method="lm", color="red") +
-   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
-   theme_bw()
-
-grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_plot, ncol = 2)
-```
-The first plot is a scatter graph between the wind capacity factor and the daily peak electricity demand indicates a weak relationship, suggesting wind generation has only a minimal impact on peak demand. This is expected, as wind generation may not correlate strong with demand peaks, which are often influenced more by factors like temperature. In terms of modelling, the wind variable may not be a significant predictor and the regression coefficient is likely to be small. To analyse this, we check the coefficient and statistical significance in the p-value in our models (MAYBE INCLUDE VALUES?). Additionally, we use the $\texttt{step}$ function in R to perform backward stepwise regression. This method iteratively removes variables that variables that do not contribute significantly to the model, based on the Akaike Information Criterion (AIC). Later in this report, we see that wind is included in the final model, therefore the AIC does not improve upon its removal. This would indicate it holds some importance for predicting demand, even if the relationship is weak.
-
-Solar ahhhh
-
-Both the scatter plots of temperature and TE against demand gross show a negative correlation where higher temperatures generally correspond to a lower electricity demand. This relationship makes intuitive sense, as warmer temperatures tend to reduce the need for heating, which is a significant factor in electricity demand during colder months. Given the clear consistent negative correlation, it was important to include one temperature variable in the model.
-
-Both temp and TE cannot be included in the model since they are based on very similar temperature data. Including both variables would introduce multicolliniarity which could affect the regression results so we only select one. TE shows slightly less variation in demand compared to temp which includes on temperature at 6pm that day. This is because TE includes data from the day before, effectively smoothing out the fluctuations in temperature and providing a more stable representation of the temperature's influence on demand. This smoothing effect should help the model to capture long term temperature trends better than temperature alone, as it captures the lag in temperatures effect on energy. This helps to provide the hypothesis that TE is a more valuable measure of temperature than the temp variable. Subsequent analysis will provide evidence to support this.
-
-The plot between year and peak demand reveals a correlation, suggesting that demand increases over time. However from this it is evident the relationship is more complex than a simple linear trend, following a cubic pattern. This implies that the the effect of the year variable on demand is not constant and changes as time progresses. There are a variety of reasons which this occurs such as reflecting long-term trends in energy usage, economic growth, policy changes or technological advancements. The following graphs visualize this hypothesis to assess whether a quadratic or cubic term improves the model's fit compared to the linear one.
-
-```{r exploring year, echo=FALSE, warning=FALSE}
-year_quadratic <- ggplot(demand, aes(x=year, y=demand_gross)) +
-   geom_point(alpha=0.5, color="darkcyan") +
-   geom_smooth(method="lm", formula = y ~ poly(x, 2), color="red") +  
-   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
-  theme_bw()
-
-year_cubic <- ggplot(demand, aes(x=year, y=demand_gross)) +
-   geom_point(alpha=0.5, color="darkcyan") +
-   geom_smooth(method="lm", formula = y ~ poly(x, 3), color="red") +  
-   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
-  theme_bw()
-
-grid.arrange(year_quadratic, year_cubic, ncol = 2)
-```
-Next we investigate the effect of categorical on peak demand by analyzing its variation across different days of the week and months using violin plots.
-
-## Categorical variables EDA
-
-We compare these using violin plots.
-
-```{r violin, echo=FALSE, warning=FALSE}
-# Day of week
-day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(wdayindex))) +
-  geom_violin(alpha=0.5) +  # Create the violin plot
-  geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
-  scale_fill_brewer(palette="Dark2") + 
-  scale_x_discrete(labels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) +
-  labs(title="Peak Demand by Day of the Week", x="Day of Week", y="Peak Demand (MW)") +
-  theme_bw() +
-  guides(fill=FALSE) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-# Month vs demand
-month_plot <- ggplot(demand, aes(x=factor(monthindex, levels = c(10, 11, 0, 1, 2)), y=demand_gross, fill=factor(monthindex))) +
-  geom_violin(alpha=0.5) +  # Create the violin plot
-  geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
-  scale_fill_brewer(palette="Dark2") +  
-  scale_x_discrete(labels=c("October", "November", "December", "Janurary", "February")) +
-  labs(title="Peak Demand Distribution by Month", x="Month", y="Peak Demand (MW)") +
-  theme_bw() +
-  guides(fill=FALSE) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-grid.arrange(day_plot, month_plot, ncol = 2, nrow = 1)
-```
-
-The violin plot for day of the week reveals several key trends in peak electricity demand. The data shows that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. The following table allows us to analyse the differences numerically. 
-```{r wday eda table, echo=TRUE}
-weekdays_stats <- data.frame(
-  Day = factor(0:6, labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")),
-  Median = tapply(demand$demand_gross, demand$wdayindex, median, na.rm = TRUE),
-  Q1 = tapply(demand$demand_gross, demand$wdayindex, function(x) quantile(x, 0.25, na.rm = TRUE)),
-  Q3 = tapply(demand$demand_gross, demand$wdayindex, function(x) quantile(x, 0.75, na.rm = TRUE))
-)
-kable(weekdays_stats, caption = "Median and Quartiles for Each Day of the Week", align = "c", format = "markdown")
-```
-Friday stands out with slightly lower peak demand compared to other weekdays. Its median is nearly 2,000 MW lower than the average of the other weekdays which could be attributed to reduced business activity as the weekend approaches.
 # Model fitting and cross-validation results
 
 In this section you should detail your choice of model and describe the process used to refine and fit the model. You are encouraged to explore different models methods but you should not include a detailed narrative of all of these attempts. For instance, you can mention the approaches you tried tried and include a comparison but do not add in depth discussions of these models beyond why they were rejected. This section should mention the methods explored and why they were rejected, but most of your effort should go into describing the model you are using and your process for tuning and validating it.
@@ -228,12 +112,11 @@ datalist <- list(demand, demand, demand_no_outliers, demand_no_outliers, demand_
 
 # creating the comparison table
 comparison_df <- comparison(lms, names, datalist)
-knit_print.comparison_df <- lemon_print
-
+colnames(comparison_df) <- c("$\\text{Model}$", "$R^2$", "$\\text{Adjusted } R^2$", "$\\text{AIC}$", "$\\text{BIC}$")
 ```
 
 ```{r comparison_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-head(comparison_df)
+kable(comparison_df, format = "latex", caption = "Model Comparison Metrics", escape = FALSE)
 ```
 
 The table above shows that... I want to do analysis of R^2 here but I will wait until we have our best model.
@@ -265,6 +148,9 @@ best_plot <- plotting(best_prediction, demand_no_outliers)
 m0_data <- cbind(m0_prediction, demand)
 best_data <- cbind(best_prediction, demand_no_outliers)
 
+# time?
+# pick an explanatory variable
+
 pp <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
   # Add points for actual data
   geom_point() +
@@ -286,36 +172,118 @@ Once we have tested on historical data, we can test the validity of our model by
 First, it is important to note that our dataset now has $daytype$ and $month$ as factor variables. We will perform leave-one-out cross-validation over months to compare how the model predicts in the different winter months that we are given. 
 
 ```{r loocv, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+source("code.R")
 m0_formula <- demand_gross ~ wind + solar_S + temp + wdayindex + monthindex
-m0_cv <- monthly_loocv_model(demand, m0_formula)
-m0_cv$model <- "m0"
-m0_scores <- monthly_loocv_scores(demand, m0_cv)
-knit_print.m0_scores <- lemon_print
+m0_scores <- monthly_rolling_model(demand, m0_formula)
+m0_scores$model <- "m0"
+
+best_formula <- demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(month, 3) + poly(year, 3))^2
+best_scores <- monthly_rolling_model(demand_no_outliers, best_formula)
+best_scores$model <- "best"
+
+all_scores <- rbind(m0_scores, best_scores)
+
+knit_print.all_scores <- lemon_print
 ```
 
 ```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-head(m0_scores)
+head(all_scores)
 ```
 
 Do some score analysis here, check out tutorials 7,9,10 and lecture 7 slides.
 
 We can also examine graphs.
 
-```{r pred_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+```{r reg_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 # plotting actual and mean vs month for a single model at a time
-m0_scores <- ggplot(m0_cv, aes(x = actual, y = mean_pred, color = model)) +
+reg_plot <- ggplot(all_scores, aes(x = actual, y = mean, color = model)) +
   geom_point(alpha = 0.2) +                      # Scatter plot of actual vs predicted
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
+  facet_wrap(~month) +
   labs(
     title = "Actual vs Predicted Demand",
     x = "Actual Demand",
     y = "Predicted Demand"
     )
+
+
 ```
 
-```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-m0_scores
+```{r reg_plot, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
+reg_plot
 ```
+
+This is not a very good plot because there are some very far away points... what's going on?
+
+```{r scores_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+se_plot <- ggplot(all_scores, aes(
+  x = actual, 
+  y = se, 
+  color = model
+  )) +
+geom_point()
+
+ds_plot <- ggplot(all_scores, aes(
+  x = actual, 
+  y = ds, 
+  color = model
+  )) +
+geom_point()
+```
+
+```{r scores_plot, warning = FALSE, echo = TRUE, out.width="50%", cache = FALSE}
+grid.arrange(se_plot, ds_plot, ncol = 2)
+```
+
+## Exchangeability Test
+
+``` {r exchange, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+
+# create a dataframe to find the difference between scores for different models
+
+score_diff <- all_scores %>%
+  filter(model %in% c("m0", "best")) %>%        # Filter for model1 and model2
+  pivot_wider(names_from = model, values_from = c(se, ds)) %>%  # Reshape the data (se and ds for model1 and model2 in separate columns)
+  mutate(
+    se = se_m0 - se_best,  # Calculate the difference for se
+    ds = ds_m0 - ds_best   # Calculate the difference for ds
+  )
+
+statistic0 <- score_diff %>% 
+  summarise(se = mean(se), 
+            ds = mean(ds))
+
+
+# number of iterations
+J <- 10000
+
+# initialise dataframe
+statistic <- data.frame(se = numeric(J),
+                        ds = numeric(J))
+
+# loop over randomisation samples
+for (loop in seq_len(J)) {
+  
+  # sample random sign changes
+  random_sign <- sample(c(-1, 1), 
+                        size = nrow(score_diff), 
+                        replace = TRUE)
+  
+  statistic[loop, ] <- score_diff %>% 
+    summarise(se = mean(random_sign * se),
+              ds = mean(random_sign * ds))
+}
+
+# now find the p values
+p_values <- statistic %>%
+  summarise(se = mean(se > statistic0$se),
+            ds = mean(ds > statistic0$ds))
+
+# Estimates:
+p_values
+
+```
+
 # Conslusion
 
 Summarize here the key insights from your analysis, focusing on the final model’s predictive performance, reliability, and practical relevance for NESO. Discuss the importance of the selected covariates, as well as any observed limitations or assumptions that should be considered when applying the model in practice.

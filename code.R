@@ -126,85 +126,98 @@ plotting <- function(prediction, data){
 #' @param data the given dataframe
 #' @param formula chosen linear model
 
-monthly_loocv_model <- function(data, formula) {
+# monthly_loocv_model <- function(data, formula) {
+#   
+#   months <- levels(data$month)
+#   
+#   # fill dataframe row-by-row with prediction derived from removing a month at a time
+#   results <- lapply(months, function(test_month) {
+#     
+#     # divide 
+#     train_data <- data %>% filter(month != test_month)
+#     test_data  <- data %>% filter(month == test_month)
+#     
+#     fit <- lm(formula, data = train_data)
+#     pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
+#     
+#     # Extract the predicted mean values, and lower and upper bounds
+#     mean_pred <- pred$fit[, "fit"]
+#     lwr_pi <- pred$fit[, "lwr"]
+#     upr_pi <- pred$fit[, "upr"]
+#     
+#     # Filter the predicted means to keep only those greater than 4000
+#     #mean_pred[mean_pred < 4000] <- NA
+#     
+#     data.frame(
+#       month = test_month,
+#       actual = test_data$demand_gross,
+#       mean_pred = mean_pred,
+#       sd_pred = sqrt(pred$se.fit^2 + summary(fit)$sigma^2),  # Total predictive uncertainty
+#       lwr_pi = lwr_pi,
+#       upr_pi = upr_pi
+#     ) 
+#   })
+#   
+#   bind_rows(results)
+# }
+
+monthly_rolling_model <- function(data, formula) {
   
-  months <- levels(data$month)
+  # initialise a dataframe for storing everything
+  scores <- data.frame()
   
-  # fill dataframe row-by-row with prediction derived from removing a month at a time
-  results <- lapply(months, function(test_month) {
+  # put all the winters in order, removing the first 3 in order to train
+  test_years <- sort(unique(data$start_year))[-(1:3)]
+  
+  # window sizes
+  training_window <- 3
+  testing_window <- 1
+  
+  # We want to split data by year
+  for (test_year in test_years) {
     
-    # divide 
-    train_data <- data %>% filter(month != test_month)
-    test_data  <- data %>% filter(month == test_month)
+    # split data for training and testing
+    train_data <- data %>% filter(start_year >= (test_year - training_window) & start_year < test_year)
+    test_data <- data %>% filter(start_year == test_year)
     
+    # fit the model on train data, predict on test data
     fit <- lm(formula, data = train_data)
     pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
     
-    # Extract the predicted mean values, and lower and upper bounds
-    mean_pred <- pred$fit[, "fit"]
+    # observed values of gross demand
+    actual <- test_data$demand_gross
+    
+    # prediction metrics
+    mean_pi <- pred$fit[, "fit"]
+    sd_pi <- sqrt(pred$se.fit^2 + summary(fit)$sigma^2)
     lwr_pi <- pred$fit[, "lwr"]
     upr_pi <- pred$fit[, "upr"]
     
-    # Filter the predicted means to keep only those greater than 4000
-    #mean_pred[mean_pred < 4000] <- NA
+    # scores
+    se_pi <- (actual - mean_pi)^2
+    ds_pi <- (actual - mean_pi)^2 / sd_pi^2 + 2 * log(sd_pi)
+    int_pi <- upr_pi - lwr_pi + (2 / 0.05) * ((lwr_pi - actual) * as.integer(actual < lwr_pi) + (actual - upr_pi) * as.integer(actual > upr_pi))
     
-    data.frame(
-      month = test_month,
-      actual = test_data$demand_gross,
-      mean_pred = mean_pred,
-      sd_pred = sqrt(pred$se.fit^2 + summary(fit)$sigma^2),  # Total predictive uncertainty
-      lwr_pi = lwr_pi,
-      upr_pi = upr_pi
-    ) 
-  })
-  
-  bind_rows(results)
-}
-
-monthly_loocv_scores <- function(data, results) {
-  
-  # Compute predictive scores per month and per model
-  monthly_scores <- results %>%
-    group_by(model, month) %>%
-    summarise(
-      mean_se = mean((actual - mean_pred)^2),
-      mean_ds = mean((actual - mean_pred)^2 / sd_pred^2 + 2 * log(sd_pred), na.rm = TRUE),
-      mean_mae = mean(abs(actual - mean_pred), na.rm = TRUE),
-      mean_rae = mean(abs(actual - mean_pred) / abs(actual), na.rm = TRUE),
-      mean_sr = mean((actual - mean_pred) / sd_pred, na.rm = TRUE),
-      mean_log_score = mean(-0.5 * log(2 * pi * sd_pred^2) - 
-                              ((actual - mean_pred)^2 / (2 * sd_pred^2)), na.rm = TRUE),
-      mean_int = mean(
-        (upr_pi - lwr_pi) + 
-          (2 / 0.05) * ((lwr_pi - actual) * as.integer(actual < lwr_pi) + (2 / 0.05) * (actual - upr_pi) * as.integer(actual > upr_pi)),
-        na.rm = TRUE
-      ),
-        .groups = "drop"
+    # add everything to our dataframe in each iteration of this loop
+    new_row <- data.frame(
+      year = test_year,
+      month = test_data$month,
+      daytype = test_data$daytype,
+      actual = actual,
+      se = se_pi,
+      ds = ds_pi,
+      int = int_pi,
+      mean = mean_pi,
+      sd = sd_pi,
+      lwr = lwr_pi,
+      upr = upr_pi
     )
+    
+    scores <- rbind(scores, new_row)
+  }
   
-  monthly_scores_df <- as.data.frame(monthly_scores)
+  return(scores)
   
-  return(monthly_scores_df)
 }
 
-simulate_max_demand <- function(weather_year) {
-  
-  # Get weather data for the specific year
-  yearly_weather <- demand %>%
-    filter(start_year == weather_year) %>%
-    dplyr::select(day_month, wind, solar_S, TE)
-  
-  # Combine with 2013-14 structure
-  combined_data <- demand_2013_structure %>%
-    left_join(yearly_weather, by = "day_month") 
-  
-  # Predict demand
-  combined_data$predicted_demand <- predict(demand_model, newdata = combined_data)
-  
-  # Return the maximum predicted demand
-  combined_data %>%
-    summarise(
-      simulated_year = 2013,
-      weather_year = weather_year,
-      max_demand = max(predicted_demand, na.rm = TRUE))
-}
+
