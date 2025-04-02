@@ -230,4 +230,31 @@ monthly_rolling_model <- function(data, formula) {
   
 }
 
+#' Simulating Maximum Demand
+#' 
+#' Simulating the maximum annual demand for 2013 by using the data from a previous
+#' winter season. 
+#'
+#' @param weather_year the year of the winter season
+simulate_max_demand <- function(weather_year) {
+ 
+   # Get weather data for the specific year
+  yearly_weather <- demand %>%
+    filter(start_year == weather_year) %>%
+    dplyr::select(day_month, wind, solar_S, TE)
+  
+  # Combine with 2013-14 structure
+  combined_data <- demand_2013_structure %>%
+    left_join(yearly_weather, by = "day_month") 
+  
+  # Predict demand
+  combined_data$predicted_demand <- predict(demand_model, newdata = combined_data)
+  
+  # Return the maximum predicted demand
+  combined_data %>%
+    summarise(
+      simulated_year = 2013,
+      weather_year = weather_year,
+      max_demand = max(predicted_demand, na.rm = TRUE))
+}
 
