@@ -37,10 +37,6 @@ set.seed(12345L)
 source("code.R")
 ```
 
-# Introduction- brief
-
-This section provides a brief introduction to the task and the datasets used. The introduction is intended to be understood by NESO analysts with a scientific background but limited statistical expertise. You can assume that the reader of your report has read the executive summary. Briefly outline the overall approach taken in modeling future daily peak electricity demand, describe the main steps involved, and summarize the key conclusions drawn from the analysis.
-
 # Introduction- part completed
 
 Accurately forecasting future daily peak electricity demand is crucial for NESO's (National Electricity System Operator) planning and security of supply analysis. High demand events in winter pose the greatest risk of electricity shortfalls since cold weather increases energy consumption, so we are is particularly interested in modelling the upper tail of the demand distribution so NESO can better anticipate extreme scenarios and allocate reserves efficiently.
@@ -52,12 +48,6 @@ In this report, we develop and evaluate a linear regression model to estimate fu
 The final model is selected based on predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also discuss the limitations of the model and highlight areas for further improvement to enhance its accuracy and robustness.
 
 ?THIS NEEDS IMPROVEMENTS- include key conclusions drawn
-
-# Data description and exploratory analysis- Brief
-
-Emphasis should be placed on the data features that are relevant for the subsequent modeling. Include visualizations that help illustrate key patterns or relationships. All plots must also be described in the write up. Think carefully about whether each plot needs to be included in your final draft. Your report should include figures and tables but they should be as focused and impactful as possible.
-
-Clearly describe all preprocessing steps, including any transformations or new variables created. If the additional dataset (`SCS_hourly_temp.csv` ) is used, provide a concise explanation of its structure and relevance to the analysis.
 
 # Data description and exploratory analysis- first draft
 
@@ -76,37 +66,37 @@ We begin by analyzing the continuous variables from our dataset and their relati
 ```{r demand  scatters, echo=FALSE, warning=FALSE}
 # Wind vs demand
 wind_plot <- ggplot(demand, aes(x=wind, y=demand_gross)) +
-  geom_point(alpha=0.5, color="darkgreen") +
+  geom_point(alpha=0.5, color=viridis(5)[4]) +
   geom_smooth(method="lm", color="red") +
   labs(title="Peak Demand vs Wind Capacity Factor", x="Wind Capacity Factor", y="Peak Demand (MW)") +
   theme_bw()
 
 # Solar vs demand
 solar_plot <- ggplot(demand, aes(x=solar_S, y=demand_gross)) +
-  geom_point(alpha=0.5, color="darkorange") +
+  geom_point(alpha=0.5, color=viridis(5)[5]) +
   geom_smooth(method="lm", color="red") +
   labs(title="Peak Demand vs Solar Capacity Factor", x="Solar Capacity Factor", y="Peak Demand (MW)") +
   theme_bw()
 
 # Temp vs demand- shows negative correlation
 temp_plot <- ggplot(demand, aes(x=temp, y=demand_gross)) +
-   geom_point(alpha=0.5, color="darkgoldenrod") +
+   geom_point(alpha=0.5, color=viridis(9)[8]) +
    geom_smooth(method="lm", color="red") +
    labs(title="Peak Demand vs Temperature", x="Temperature (°C)", y="Peak Demand (MW)") +
    theme_bw()
 
 # TE vs demand- shows negative correlation
 te_plot <- ggplot(demand, aes(x=TE, y=demand_gross)) +
-   geom_point(alpha=0.5, color="steelblue") +
+   geom_point(alpha=0.5, color=viridis(9)[4]) +
    geom_smooth(method="lm", color="red") +
    labs(title="Peak Demand vs TE", x="Temperature (°C)", y="Peak Demand (MW)") +
    theme_bw()
 
-# Year vs demand- shows negative correlation
-year_plot <- ggplot(demand, aes(x=year, y=demand_gross)) +
-   geom_point(alpha=0.5, color="darkmagenta") +
+# Start_Year vs demand- shows negative correlation
+year_plot <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
+   geom_point(alpha=0.5, color=viridis(5)[1]) +
    geom_smooth(method="lm", color="red") +
-   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
+   labs(title="Peak Demand vs Winter Start Year", x="Year", y="Peak Demand (MW)") +
    theme_bw()
 
 grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_plot, ncol = 2)
@@ -123,16 +113,16 @@ Both temp and TE variables cannot be included in the model since they are based 
 The plot between year and peak demand reveals a correlation, suggesting that demand increases over time. However from this it is evident the relationship is more complex than a simple linear trend, following a cubic pattern. This implies that the the effect of the year variable on demand is not constant and changes as time progresses. There are a variety of reasons which this occurs such as reflecting long-term trends in energy usage, economic growth, policy changes or technological advancements. The following graphs visualize this hypothesis to assess whether a quadratic or cubic term improves the model's fit compared to the linear one.
 
 ```{r exploring year, echo=FALSE, warning=FALSE}
-year_quadratic <- ggplot(demand, aes(x=year, y=demand_gross)) +
-   geom_point(alpha=0.5, color="darkcyan") +
+year_quadratic <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
+   geom_point(alpha=0.5, color=viridis(9)[6]) +
    geom_smooth(method="lm", formula = y ~ poly(x, 2), color="red") +  
-   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
+   labs(title="Peak Demand vs Winter Start Year", x="Winter Start Year", y="Peak Demand (MW)") +
   theme_bw()
 
-year_cubic <- ggplot(demand, aes(x=year, y=demand_gross)) +
-   geom_point(alpha=0.5, color="darkcyan") +
+year_cubic <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
+   geom_point(alpha=0.5, color=viridis(9)[6]) +
    geom_smooth(method="lm", formula = y ~ poly(x, 3), color="red") +  
-   labs(title="Peak Demand vs Year", x="Year", y="Peak Demand (MW)") +
+   labs(title="Peak Demand vs Winter Start Year", x="Winter Start Year", y="Peak Demand (MW)") +
   theme_bw()
 
 grid.arrange(year_quadratic, year_cubic, ncol = 2)
@@ -145,7 +135,7 @@ Next we investigate the effect of categorical on peak demand by analyzing its va
 day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(wdayindex))) +
   geom_violin(alpha=0.5) +  # Create the violin plot
   geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
-  scale_fill_brewer(palette="Dark2") + 
+  scale_fill_viridis_d(option="viridis") +   
   scale_x_discrete(labels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) +
   labs(title="Peak Demand by Day of the Week", x="Day of Week", y="Peak Demand (MW)") +
   theme_bw() +
@@ -156,8 +146,8 @@ day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(
 month_plot <- ggplot(demand, aes(x=factor(monthindex, levels = c(10, 11, 0, 1, 2)), y=demand_gross, fill=factor(monthindex))) +
   geom_violin(alpha=0.5) +  # Create the violin plot
   geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
-  scale_fill_brewer(palette="Dark2") +  
-  scale_x_discrete(labels=c("October", "November", "December", "Janurary", "February")) +
+  scale_fill_viridis_d(option="viridis") +    
+  scale_x_discrete(labels=c("October", "November", "December", "January", "February")) +
   labs(title="Peak Demand Distribution by Month", x="Month", y="Peak Demand (MW)") +
   theme_bw() +
   guides(fill=FALSE) +
@@ -177,7 +167,7 @@ weekdays_stats <- data.frame(
 kable(weekdays_stats, caption = "Median and Quartiles for Each Day of the Week", align = "c", format = "markdown")
 ```
 
-Friday stands out with slightly lower peak demand compared to other weekdays. Its median is nearly 2,000 MW lower than the average of the other weekdays which could be attributed to reduced business activity as the weekend approaches. In terms of weekday behavior, there is considerable overlap between the days. The medians for these days are quite close, indicating that demand is fairly consistent throughout the workweek. When comparing weekdays to weekends, there is a clear difference in the median values. Weekdays have a higher median peak demand around 52,000, while weekends show lower values of 45,000.
+Friday stands out with slightly lower peak demand compared to other weekdays. Its median is nearly 2,000 MW lower than the average of the other weekdays which could be attributed to reduced business activity as the weekend approaches. In terms of weekday behavior, there is considerable overlap between the days. The medians for these days are quite close, indicating that demand is fairly consistent throughout the workweek. When comparing weekdays to weekends, there is a clear difference in the median values. Weekdays have a higher median peak demand around 52,000 MW, while weekends show lower values of 45,000 MW.
 
 Including day of the week as a factor variable in the model ensures that all variations in demand across different days are incorporated into the model. This allows the regression to account for differences in peak demand as well as any subtle variations between individual weekdays. This should help the model more effectively capture demand patterns without oversimplifying the structure of the data. These differences lead us to hypothesise that this variable will be useful in the model and statistically significant. Our later analysis will confirm this. 
 
