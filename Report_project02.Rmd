@@ -131,32 +131,33 @@ grid.arrange(year_quadratic, year_cubic, ncol = 2)
 Next we investigate the effect of categorical on peak demand by analyzing its variation across different days of the week and months using violin plots.
 
 ```{r violin, echo=FALSE, warning=FALSE}
+# Month vs demand
+month_plot <- ggplot(demand, aes(x=factor(monthindex, levels = c(10, 11, 0, 1, 2)), y=demand_gross, fill=factor(monthindex))) +
+  geom_violin(alpha=0.5) +  # Create the violin plot
+  geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
+  scale_fill_viridis_d(option="viridis") +    
+  scale_x_discrete(labels=c("November", "December", "Janurary", "February", "March")) +
+  labs(title="Peak Demand Distribution by Month", x="Month", y="Peak Demand (MW)") +
+  theme_bw() +
+  guides(fill=FALSE) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
 # Day of week
 day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(wdayindex))) +
   geom_violin(alpha=0.5) +  # Create the violin plot
   geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
-  scale_fill_viridis_d(option="viridis") +   
+  scale_fill_viridis_d(option="viridis") + 
   scale_x_discrete(labels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) +
   labs(title="Peak Demand by Day of the Week", x="Day of Week", y="Peak Demand (MW)") +
   theme_bw() +
   guides(fill=FALSE) + 
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# Month vs demand
-month_plot <- ggplot(demand, aes(x=factor(monthindex, levels = c(10, 11, 0, 1, 2)), y=demand_gross, fill=factor(monthindex))) +
-  geom_violin(alpha=0.5) +  # Create the violin plot
-  geom_boxplot(width=0.2, color="black", alpha=0.7) +  # Add a boxplot inside the violin for quartiles
-  scale_fill_viridis_d(option="viridis") +    
-  scale_x_discrete(labels=c("October", "November", "December", "January", "February")) +
-  labs(title="Peak Demand Distribution by Month", x="Month", y="Peak Demand (MW)") +
-  theme_bw() +
-  guides(fill=FALSE) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-
-grid.arrange(day_plot, month_plot, ncol = 2, nrow = 1)
+grid.arrange(month_plot, day_plot, ncol = 2, nrow = 1)
 ```
 
-The violin plot for day of the week reveals several key trends in peak electricity demand. The data shows that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. The following table allows us to analyse the differences numerically. 
+The violin plot for day of the week reveals several key trends in peak electricity demand. The data shows that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. ?conclusion The following table allows us to analyse the differences numerically.
+
 ```{r wday eda table, echo=TRUE}
 weekdays_stats <- data.frame(
   Day = factor(0:6, labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")),
