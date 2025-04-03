@@ -196,7 +196,7 @@ To evaluate the models to consider, the most important metrics to consider are t
 
 ```{r comparing_models, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
-# making daytype into a factor variable then taking out outliers
+# making daytype and month into factor variables in our dataset
 demand$daytype <- factor(
   ifelse(demand$wdayindex %in% 0:4, "Weekday", "Weekend"),
   levels = c("Weekday", "Weekend")
@@ -206,30 +206,32 @@ demand$month <- factor(demand$monthindex,
   labels = c("Nov", "Dec", "Jan", "Feb", "Mar")
 )
 
-
 # models we are considering
 m0 <- lm(demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex, data = demand)
 m0_year_cubed_te_squared <- lm(demand_gross ~ (1 + wind + solar_S + TE + daytype + month + poly(start_year, 3))^2, data = demand)
-m0_daytype_outliers <- lm(demand_gross ~ 1 + wind + solar_S + temp + daytype + month, data = demand)
 year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + I(daytype)^2 + month + poly(start_year, 3))^2, data = demand)
 best <- lm(demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(month, 3) + poly(start_year, 3))^2, data = demand)
 
 # putting all these models into a vector for comparison
-lms <- list(m0, m0_year_cubed_te_squared, m0_daytype_outliers, year_cubed_te_squared, best_no_outliers_sqr)
-names <- c("m0", "Poly Year, TE, interactions", "m0, daytype factor, no outliers", "Poly Year, TE, interactions, no outliers", "final model")
+lms <- list(m0, m0_year_cubed_te_squared, year_cubed_te_squared, best)
+names <- c("m0", "Poly start_year, TE, interactions", "Poly start_year, TE, interactions, poly daytype", "Best model")
 
 # creating the comparison table
 comparison_df <- comparison(lms, names, demand)
-colnames(comparison_df) <- c("Model", "$\\R^2$", "Adjusted $R^2$", "AIC", "BIC")
+colnames(comparison_df) <- c("Model", "$R^2$", "Adjusted $R^2$", "AIC", "BIC", "RMSE")
 
 ```
 
 ```{r comparison_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-kable(comparison_df, format = "latex", caption = "Model Comparison Metrics", escape = FALSE) %>%
-  kable_styling(latex_options = c("striped", "HOLD_position"))
+kable(comparison_df)
 ```
 
 The table above shows that... I want to do analysis of R^2 here but I will wait until we have our best model. Talk about what each metric means.
+
+In this table we are evaluating the results of the model fitting by checking metrics. The $R^2$ metrics evaluate how well the model fits the response data, written as $R^2 = 1 − \frac{\frac{1}{n} \sum_{i = 1}^n \hat{\varepsilon_i}^2}{\frac{1}{n} \sum_{i = 1}^n (y_i - \bar{y})^2}$. Additionally, we can analyse Adjusted $R^2$, which uses unbiased estimators, because $R^2$ can overestimate how well a model is doing. We have $R_adj^2 = 1 − \frac{\frac{1}{n-p} \sum_{i = 1}^n \hat{\varepsilon_i}^2}{\frac{1}{n-1} \sum_{i = 1}^n (y_i - \bar{y})^2}$, where $p$ is the number of model parameters. We want our $R^2$ values to be as close as possible to 1 to indicate a close fit. By looking at the table above, we can see that our $best$ model is the best?
+
+
+
 
 ## Testing on Historical Data
 
@@ -299,16 +301,15 @@ best_historical_month <- ggplot(best_data, aes(x = demand_gross, y = mean_pred, 
 grid.arrange(m0_historical_daytype, best_historical_daytype, m0_historical_month, best_historical_month, ncol = 2)
 ```
 
-We'll want to include residuals plots here.
-
 ### Residuals
 
+We'll want to include residuals plots here.
 
 ## Cross-Validation
 
-Once we have tested on historical data, we can test the validity of our model by examining how well it predicts. One way of doing this is by performing cross-validation.
+As well as testing on historical data, our final model can be tested on future data. One way of doing this is by performing cross-validation.
 
-First, it is important to note that our dataset now has $daytype$ and $month$ as factor variables. We will perform leave-one-out cross-validation over months to compare how the model predicts in the different winter months that we are given. 
+First, it is important to note that our data now has $daytype$ and $month$ as factor variables. We will perform rolling-window cross-validation to compare how the model predicts in the different winter months that we are given. We will train on 3 years, and test on the next year, then move our testing window forward by 1 year. Here I am comparing the basic model, $m0$, and our final model, $Best$. To examine how well the models predict, we analyse scores. These are shown in the table below.
 
 ```{r loocv, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 source("code.R")
@@ -318,28 +319,40 @@ m0_scores$model <- "m0"
 
 best_formula <- demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(month, 3) + poly(year, 3))^2
 best_scores <- monthly_rolling_model(demand, best_formula)
-best_scores$model <- "best"
+best_scores$model <- "Best"
 
 all_scores <- rbind(m0_scores, best_scores)
 
-m0_sample <- all_scores %>%
-  filter(model == "m0") %>%     # Filter for 'm0' model
-  sample_n(5, replace = FALSE)
+# m0_sample <- all_scores %>%
+#   filter(model == "m0") %>%     # Filter for 'm0' model
+#   sample_n(5, replace = FALSE)
+# 
+# best_sample <- all_scores %>%
+#   filter(model == "Best") %>%   # Filter for 'best' model
+#   sample_n(5, replace = FALSE)
+# 
+# combined_sample <- rbind(m0_sample, best_sample) %>%
+#   arrange(model, year, month) %>%
+#   group_by(model)
 
-best_sample <- all_scores %>%
-  filter(model == "best") %>%   # Filter for 'best' model
-  sample_n(5, replace = FALSE)
+score_summary <- all_scores %>%
+  group_by(model) %>%
+  summarise(se = mean(se),
+            ds = mean(ds),
+            int = mean(int))
 
-combined_sample <- rbind(m0_sample, best_sample) %>%
-  arrange(model, year, month) %>%
-  group_by(model)
 ```
 
 ```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
-kable(combined_sample)
+kable(score_summary)
 ```
 
 Do some score analysis here, check out tutorials 7,9,10 and lecture 7 slides.
+
+The table above shows the average Squared Error (se), average Dawid-Sebastiani score (ds) and the average Interval score (int) for the basic model and our final model. These are all negatively-oriented scores, therefore we want them to be as small as possible.
+
+Squared Error $S_{SE}(F, y) = (y − \hat{y}_F)^2$ is based on means, and gives us no information for uncertainty. Therefore the difference between the SE is not significant. On the other hand, the Dawid-Sebastiani score $S_{DS}(F, y) = \frac{(y−\mu_F)^2}{\sigma_F^2} + \log(\sigma_F^2)$ takes into account the variance of the prediction, and therefore we can use the DS score to indicate that model 0 is better??. Finally, the Interval score $S_{INT}(F, y) = U_F − L_F + \frac{2}{\alpha}(L_F - y)\mathbb{I}(y < L_F ) + \frac{2}{\alpha}(y − U_F)\mathbb{I}(y > U_F)$ shows us the coverage of our prediction. We want the difference between $U_F$ and $L_F$, the upper and lower bounds for our prediction F, to be as small as possible while still covering the value as much as possible. Therefore we can conclude that model .. is better.
+
 
 We can also examine graphs.
 
@@ -371,6 +384,7 @@ se_plot <- ggplot(all_scores, aes(
   y = se, 
   color = model
   )) +
+  
 geom_point()
 
 ds_plot <- ggplot(all_scores, aes(
@@ -392,16 +406,22 @@ grid.arrange(se_plot, ds_plot, ncol = 2)
 # create a dataframe to find the difference between scores for different models
 
 score_diff <- all_scores %>%
-  filter(model %in% c("m0", "best")) %>%        # Filter for model1 and model2
-  pivot_wider(names_from = model, values_from = c(se, ds)) %>%  # Reshape the data (se and ds for model1 and model2 in separate columns)
+  group_by(year, month) %>%
+  pivot_wider(
+    names_from = model,
+    values_from = se
+    )  
+
+%>% 
   mutate(
-    se = se_m0 - se_best,  # Calculate the difference for se
-    ds = ds_m0 - ds_best   # Calculate the difference for ds
-  )
+    se_diff = `se_m0` - `se_Best`,  # Use backticks to reference column names
+    ds_diff = `ds_m0` - `ds_Best`   # Use backticks to reference column names
+  ) %>%
+  select(year, month, se_diff, ds_diff)
 
 statistic0 <- score_diff %>% 
-  summarise(se = mean(se), 
-            ds = mean(ds))
+  summarise(se = mean(se_diff), 
+            ds = mean(ds_diff))
 
 
 # number of iterations
@@ -433,6 +453,7 @@ p_values <- statistic %>%
 p_values
 
 ```
+
 ## Maximum Annual Demand Variation 
 
 We can test how the maximum annual demand of the 2013-2014 winter season changes based on weather conditions from previous winters. So using the data from each previous winter season we simulate the maximum annual demand for 2013 by using our model and predicting the values.  
