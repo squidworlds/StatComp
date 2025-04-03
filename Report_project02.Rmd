@@ -207,13 +207,21 @@ demand$month <- factor(demand$monthindex,
 )
 
 # models we are considering
-m0 <- lm(demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex, data = demand)
-m0_year_cubed_te_squared <- lm(demand_gross ~ (1 + wind + solar_S + TE + daytype + month + poly(start_year, 3))^2, data = demand)
-year_cubed_te_squared <- lm(demand_gross ~ (wind + solar_S + TE + I(daytype)^2 + month + poly(start_year, 3))^2, data = demand)
-best <- lm(demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(month, 3) + poly(start_year, 3))^2, data = demand)
+# final models we are considering
+m_0 <- lm(demand_gross ~ wind + solar_S + temp + factor(wdayindex) + month, data = demand) 
+
+m_0_start_year_cubed <- lm(demand_gross ~ wind + solar_S + temp + factor(wdayindex) + month + poly(start_year, 3), data = demand)
+
+m_0_year_te <- lm(demand_gross ~ wind + solar_S + TE + factor(wdayindex) + month + poly(start_year, 3), data = demand)
+
+m_0_year_te_daytype <- lm(demand_gross ~ wind + solar_S + TE + daytype + month + poly(start_year, 3), data = demand)
+
+m_prestep <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex) + month + poly(start_year, 3))^2, data = demand)
+
+m_final <- step(m_prestep, direction = "backward")
 
 # putting all these models into a vector for comparison
-lms <- list(m0, m0_year_cubed_te_squared, year_cubed_te_squared, best)
+lms <- list(m_0, m_0_start_year_cubed, m_0_year_te_daytype, m_prestep, m_final)
 names <- c("m0", "Poly start_year, TE, interactions", "Poly start_year, TE, interactions, poly daytype", "Best model")
 
 # creating the comparison table
