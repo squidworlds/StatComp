@@ -587,7 +587,20 @@ max_demand_plot
 ```
 From the plot above we can see that the max demand changes according to each weather year being used ranging from 52,328.22 MW (2005) to 54,485.10 MW (1991). Many of the weather years (1991, 1995, 2002, 2012) all predicted a higher demand than the true 2013 value and this could be because towards the later weather years the annual demand was decreasing. This may reflect a change in people becoming more energy conscious and trying to save energy in other ways to reduce usage which explains the overestimation of max demand. There may have been an impact due to extreme weather and this would explain why some weather years have more extreme predicted maximum annual demand values reflecting the weather conditions that were faced in those years.
 
-# Conslusion
+```{r temp range, echo=FALSE}
+# Define the different TO time ranges and TE rolling windows to explore
+time_ranges <- list(c(13, 15), c(14, 17), c(13, 18))  # Different TO periods (e.g., 1-3pm, 2-5pm, 1-6pm)
+rolling_windows <- c(2, 3, 5)  # Different TE rolling average window sizes
+
+# Store results
+model_results <- data.frame(TimeRange = character(),
+                            TE_Window = integer(),
+                            AIC = numeric(),
+                            R2 = numeric(),
+                            stringsAsFactors = FALSE)
+
+print(model_results)
+# Conclusion
 
 Summarize here the key insights from your analysis, focusing on the final model’s predictive performance, reliability, and practical relevance for NESO. Discuss the importance of the selected covariates, as well as any observed limitations or assumptions that should be considered when applying the model in practice.
 
