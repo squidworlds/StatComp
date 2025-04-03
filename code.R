@@ -10,7 +10,7 @@
 #' @param names names of the linear models we are comparing
 #' @param datalist a list of the data that we are using for each model in lms
 
-comparison <- function(lms, names, data){
+comparison <- function(formulas, names, data){
   
   # Initialise a dataframe for the results
   results <- data.frame(
@@ -24,12 +24,11 @@ comparison <- function(lms, names, data){
   )
   
   # Loop over the models
-  for (i in 1:length(lms)) {
+  for (i in 1:length(formulas)) {
     
     # Extract models and names from the inputted dataframe
-    model <- lms[[i]]
+    model <- lm(formulas[[i]], data)
     model_name <- names[i]
-    data <- data
     
     # Calculate R-squared and Adjusted R-squared
     model_summary <- summary(model)
@@ -67,11 +66,11 @@ comparison <- function(lms, names, data){
 #' @param lm the linear model we are testing
 #' @param data the dataset that we are modelling on
 
-lm_predicting <- function(lm, data){
+lm_predicting <- function(formula, data){
   
   # predict using the linear model
-  confidence <- predict.lm(object = lm, interval = "confidence", level = 0.95)
-  prediction <- predict.lm(object = lm, newdata = data,
+  confidence <- predict.lm(object = lm(formula, data), interval = "confidence", level = 0.95)
+  prediction <- predict.lm(object = lm(formula, data), newdata = data,
                            se.fit = TRUE, interval = "prediction", level = 0.95)
   
   # create dataframe with predicted data
@@ -92,16 +91,8 @@ lm_predicting <- function(lm, data){
   return(p)
 }
 
-#' Plotting actual against predicted data
-#' 
-#' Checking the accuracy of our linear model by predicting on all historical
-#' data, then plotting actual against predicted
-#' 
-#' @param prediction output of function lm_predicting
-#' @param data the data that we are modelling on
-
 plotting <- function(prediction, data){
-
+  
   # putting historical data and estimated data in a dataframe
   data <- cbind(prediction, data)
   
@@ -115,8 +106,9 @@ plotting <- function(prediction, data){
     scale_color_manual(values = c("weekday" = "cyan", "weekend" = "pink"))
   
   return(pp)
-
+  
 }
+
 
 #' Leave-One-Out Cross Validation
 #' 
@@ -126,40 +118,40 @@ plotting <- function(prediction, data){
 #' @param data the given dataframe
 #' @param formula chosen linear model
 
-# monthly_loocv_model <- function(data, formula) {
-#   
-#   months <- levels(data$month)
-#   
-#   # fill dataframe row-by-row with prediction derived from removing a month at a time
-#   results <- lapply(months, function(test_month) {
-#     
-#     # divide 
-#     train_data <- data %>% filter(month != test_month)
-#     test_data  <- data %>% filter(month == test_month)
-#     
-#     fit <- lm(formula, data = train_data)
-#     pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
-#     
-#     # Extract the predicted mean values, and lower and upper bounds
-#     mean_pred <- pred$fit[, "fit"]
-#     lwr_pi <- pred$fit[, "lwr"]
-#     upr_pi <- pred$fit[, "upr"]
-#     
-#     # Filter the predicted means to keep only those greater than 4000
-#     #mean_pred[mean_pred < 4000] <- NA
-#     
-#     data.frame(
-#       month = test_month,
-#       actual = test_data$demand_gross,
-#       mean_pred = mean_pred,
-#       sd_pred = sqrt(pred$se.fit^2 + summary(fit)$sigma^2),  # Total predictive uncertainty
-#       lwr_pi = lwr_pi,
-#       upr_pi = upr_pi
-#     ) 
-#   })
-#   
-#   bind_rows(results)
-# }
+monthly_loocv_model <- function(data, formula) {
+
+  months <- levels(data$month)
+
+  # fill dataframe row-by-row with prediction derived from removing a month at a time
+  results <- lapply(months, function(test_month) {
+
+    # divide
+    train_data <- data %>% filter(month != test_month)
+    test_data  <- data %>% filter(month == test_month)
+
+    fit <- lm(formula, data = train_data)
+    pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
+
+    # Extract the predicted mean values, and lower and upper bounds
+    mean_pred <- pred$fit[, "fit"]
+    lwr_pi <- pred$fit[, "lwr"]
+    upr_pi <- pred$fit[, "upr"]
+
+    # Filter the predicted means to keep only those greater than 4000
+    #mean_pred[mean_pred < 4000] <- NA
+
+    data.frame(
+      month = test_month,
+      actual = test_data$demand_gross,
+      mean_pred = mean_pred,
+      sd_pred = sqrt(pred$se.fit^2 + summary(fit)$sigma^2),  # Total predictive uncertainty
+      lwr_pi = lwr_pi,
+      upr_pi = upr_pi
+    )
+  })
+
+  bind_rows(results)
+}
 
 
 #' Rolling Cross-Validation
@@ -258,66 +250,3 @@ simulate_max_demand <- function(weather_year) {
       max_demand = max(predicted_demand, na.rm = TRUE))
 }
 
-#' Custom TE variable
-#' 
-#' 
-#' 
-calculate_TE <- function(hourly_temp, demand, start_hour, end_hour, window) {
-  # Extract the hour from the 'Time' column
-  hourly_temp$hour <- as.numeric(format(strptime(hourly_temp$Time, "%H:%M:%S"), "%H"))
-  
-  # Filter the hourly_temp dataframe to include only the hours in the given window
-  hourly_temp_window <- hourly_temp %>%
-    filter(hour >= start_hour & hour <= end_hour)
-  
-  # Calculate the average temperature (TO) for the specified time window
-  hourly_temp_window <- hourly_temp_window %>%
-    group_by(Date) %>%
-    summarise(TO = mean(temp, na.rm = TRUE))
-  # Create dynamic name for TO
-  TO_column_name <- paste("TO_", start_hour, "_", end_hour, "_", window, sep = "")
-  colnames(hourly_temp_window)[which(names(hourly_temp_window) == "TO")] <- TO_column_name
-  
-  # Convert the Date column to Date type in both datasets
-  hourly_temp_window$Date <- as.Date(hourly_temp_window$Date)
-  demand$Date <- as.Date(demand$Date)
-  
-  # Merge the new TO variable back into the demand dataset
-  merged_data <- left_join(demand, hourly_temp_window, by = "Date")
-  
-  # Calculate the rolling average for TE (e.g., TE_2 for 2-day rolling average)
-  TE_column <- paste("TE_", start_hour, "_", end_hour, "_", window, sep = "")
-  merged_data[[TE_column]] <- zoo::rollapply(merged_data$TO, width = window, FUN = mean, align = "right", fill = NA)
-  
-  # Return the updated dataset with TE column
-  return(merged_data)
-}
-
-
-#' Varying TE comparison table
-#' 
-# Loop through time ranges and rolling windows
-for (range in time_ranges) {
-  for (window in rolling_windows) {
-    # Generate TO and TE for the given time range and window
-    merged_data <- calculate_TE(hourly_temp, demand, start_hour = range[1], end_hour = range[2], window = window)
-    
-    # Get the dynamically named TE column
-    TE_col <- paste0("TE_", range[1], "_", range[2], "_", window)
-    
-    # Fit the model
-    model <- lm(demand_gross ~ wind + solar_S + merged_data[[TE_col]] + factor(wdayindex) + factor(monthindex) + poly(start_year, 3), data = merged_data)
-    
-    # Extract AIC and R²
-    model_aic <- AIC(model)
-    model_r2 <- summary(model)$r.squared
-    
-    # Store the results
-    model_results <- rbind(model_results, data.frame(
-      TimeRange = paste(range[1], "-", range[2], sep = ""),
-      TE_Window = window,
-      AIC = model_aic,
-      R2 = model_r2
-    ))
-  }
-}
