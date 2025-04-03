@@ -155,6 +155,7 @@ day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(
 
 grid.arrange(month_plot, day_plot, ncol = 2, nrow = 1)
 ```
+
 The first plot illustrates the distribution of peak demand across different months. While the peak demand in most months appears relatively consistent, March stands out with a noticeably lower demand compared to the others. This drop in demand is possibly due to the improving weather and decreased heating demand. Given this distinct difference in March, it is likely the month variable will be an important factor to include in the modelling process.
 
 The violin plot for day of the week reveals several key trends in peak electricity demand. The data shows that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. ?conclusion The following table allows us to analyse the differences numerically.
@@ -176,62 +177,63 @@ Including day of the week as a factor variable in the model ensures that all var
 The next step is to explore interactions that can help improve the model accuracy. Interactions allow us to capture relationships where the effect of one variable on peak demand depends on the value of another.
 
 ```{r interactions, echo=FALSE, out.width="90%"}
-solar_wday <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(wdayindex))) +
-  geom_point(alpha=0.4) +
-  geom_smooth(method="lm", se=FALSE) +
-  scale_color_viridis_d() +
-  scale_color_manual(values = viridis::viridis(7), 
-                     labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) +
-  labs(title="Interaction Between Solar Generation and Day of the Week", 
-       x="Solar Generation", y="Peak Demand (MW)", color="Day of the Week") +
-  theme_bw()
-
-solar_month <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(monthindex, levels=c(11, 12, 0, 1, 2)))) +
-  geom_point(alpha=0.4) +
-  geom_smooth(method="lm", se=FALSE) +
-  scale_color_viridis_d(option = "D", begin = 0, end = 1, 
-                        labels = c("November", "Decemeber", "January", "February", "March")) +
-  labs(title="Interaction Between Solar Generation and Month", 
-       x="Solar Generation", y="Peak Demand (MW)", color="Month") +
-  theme_bw()
-
-TE_month <- ggplot(demand, aes(x=TE, y=demand_gross, color=factor(monthindex, levels=c(11, 12, 0, 1, 2)))) +
-  geom_point(alpha=0.4) +
-  geom_smooth(method="lm", se=FALSE) +
-  scale_color_viridis_d(option = "D", begin = 0, end = 1, 
-                        labels = c("November", "Decemeber", "January", "February", "March")) +
-  labs(title="Interaction Between Temperature and Month", 
-       x="Temperature (°C)", y="Peak Demand (MW)", color="Month") +
-  theme_bw()
-
-grid.arrange(solar_wday, solar_month, TE_month, ncol = 2, nrow = 2)
+ solar_wday <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(wdayindex))) +
+   geom_point(alpha=0.4) +
+   geom_smooth(method="lm", se=FALSE) +
+   scale_color_viridis_d() +
+   scale_color_manual(values = viridis::viridis(7), 
+                      labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) +
+   labs(title="Interaction Between Solar Generation and Day of the Week", 
+        x="Solar Generation", y="Peak Demand (MW)", color="Day of the Week") +
+   theme_bw()
+ 
+ solar_month <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(monthindex, levels=c(11, 12, 0, 1, 2)))) +
+   geom_point(alpha=0.4) +
+   geom_smooth(method="lm", se=FALSE) +
+   scale_color_viridis_d(option = "D", begin = 0, end = 1, 
+                         labels = c("November", "Decemeber", "January", "February", "March")) +
+   labs(title="Interaction Between Solar Generation and Month", 
+        x="Solar Generation", y="Peak Demand (MW)", color="Month") +
+   theme_bw()
+ 
+ TE_month <- ggplot(demand, aes(x=TE, y=demand_gross, color=factor(monthindex, levels=c(11, 12, 0, 1, 2)))) +
+   geom_point(alpha=0.4) +
+   geom_smooth(method="lm", se=FALSE) +
+   scale_color_viridis_d(option = "D", begin = 0, end = 1, 
+                         labels = c("November", "Decemeber", "January", "February", "March")) +
+   labs(title="Interaction Between Temperature and Month", 
+        x="Temperature (°C)", y="Peak Demand (MW)", color="Month") +
+   theme_bw()
+ 
+ grid.arrange(solar_wday, solar_month, TE_month, ncol = 2, nrow = 2)
 ```
-
-? When I get plots to work I can analyse properly.
-
+ 
+ ? When I get plots to work I can analyse properly.
+ 
 ## Other Models Considered
-
+ 
 To develop a robust forecasting model for daily peak electricity demand, we explored several model formulations and refined them using stepwise selection.
-
+ 
 The provided base model, \[M_0:demand_gross=\beta\_0+\beta\_1 Wind_i+\beta_2Solar}_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i\] accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not? take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
-
-Furthermore, the initial model did not take capture long-term trends in electricity demand. The previous exploratory visualizations revealed that year variable, `start_year`, influenced peak demand, particularly in a cubic pattern. This insight led to the inclusion of `poly(start_year, 3)`. This was selected instead over the non-orthogonal polynomial, `start_year + I(start_year^2) + I(start_year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
-
-Given the hypothesis that TE (a rolling temperature variable) might be a better predictor than temp from the exploratory analysis, we replaced it and further analysis shows that this change led to a better model. This change aimed to smoothing out short-term fluctuations and incorporating lagged effects from previous days' temperatures, providing a more accurate predictor of peak demand.
-
-Our earlier plots also revealed the importance of interactions between variables on peak demand. Therefore, it was important our model contained at least two way interactions to accurately capture the relationships and improve predictive power. However, to mitigate the risk of overfitting and reduce the number of unnecessary explanatory variables, we refined the model further by applying backward stepwise regression. This method begins with the full model and irteratively removed the least significant variables. At each step, the model's performance is assessed using the Akaike Information Criterion (AIC), which balances model fit and complexity. The predictor that results in the smallest increase in AIC is removed, and the process continues until no further improvements can be made. This approach helps prevent overfitting by simplifying the model while retaining its predictive power. 
-
+ 
+ Furthermore, the initial model did not take capture long-term trends in electricity demand. The previous exploratory visualizations revealed that year variable, `start_year`, influenced peak demand, particularly in a cubic pattern. This insight led to the inclusion of `poly(start_year, 3)`. This was selected instead over the non-orthogonal polynomial, `start_year + I(start_year^2) + I(start_year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
+ 
+ Given the hypothesis that TE (a rolling temperature variable) might be a better predictor than temp from the exploratory analysis, we replaced it and further analysis shows that this change led to a better model. This change aimed to smoothing out short-term fluctuations and incorporating lagged effects from previous days' temperatures, providing a more accurate predictor of peak demand.
+ 
+ Our earlier plots also revealed the importance of interactions between variables on peak demand. Therefore, it was important our model contained at least two way interactions to accurately capture the relationships and improve predictive power. However, to mitigate the risk of overfitting and reduce the number of unnecessary explanatory variables, we refined the model further by applying backward stepwise regression. This method begins with the full model and irteratively removed the least significant variables. At each step, the model's performance is assessed using the Akaike Information Criterion (AIC), which balances model fit and complexity. The predictor that results in the smallest increase in AIC is removed, and the process continues until no further improvements can be made. This approach helps prevent overfitting by simplifying the model while retaining its predictive power. 
+ 
 This leaves us with the final model:\[
 \begin{aligned}
 M1: \text{demand\_gross}_i = & \, \beta_0 + \beta_1 \cdot \text{wind}_i + \beta_2 \cdot \text{solar\_S}_i + \beta_3 \cdot \text{TE}_i + \beta_4 \cdot \text{factor(wdayindex)}_i + \beta_5 \cdot \text{month}_i \\
-& + \beta_6 \cdot \text{poly(start\_year, 3)}_i + \beta_7 \cdot (\text{wind} \times \text{month})_i + \beta_8 \cdot (\text{wind} \times \text{poly(start\_year, 3)})_i \\
-& + \beta_9 \cdot (\text{solar\_S} \times \text{factor(wdayindex)})_i + \beta_{10} \cdot (\text{solar\_S} \times \text{month})_i \\
-& + \beta_{11} \cdot (\text{solar\_S} \times \text{poly(start\_year, 3)})_i + \beta_{12} \cdot (\text{TE} \times \text{month})_i \\
-& + \beta_{13} \cdot (\text{TE} \times \text{poly(start\_year, 3)})_i + \beta_{14} \cdot (\text{factor(wdayindex)} \times \text{month})_i \\
-& + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start\_year, 3)})_i + \epsilon_i
+ & + \beta_6 \cdot \text{poly(start\_year, 3)}_i + \beta_7 \cdot (\text{wind} \times \text{month})_i + \beta_8 \cdot (\text{wind} \times \text{poly(start\_year, 3)})_i \\
+ & + \beta_9 \cdot (\text{solar\_S} \times \text{factor(wdayindex)})_i + \beta_{10} \cdot (\text{solar\_S} \times \text{month})_i \\
+ & + \beta_{11} \cdot (\text{solar\_S} \times \text{poly(start\_year, 3)})_i + \beta_{12} \cdot (\text{TE} \times \text{month})_i \\
+ & + \beta_{13} \cdot (\text{TE} \times \text{poly(start\_year, 3)})_i + \beta_{14} \cdot (\text{factor(wdayindex)} \times \text{month})_i \\
+ & + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start\_year, 3)})_i + \epsilon_i
 \end{aligned}
 \]
- where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\epsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
+where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\epsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
+ 
 
 # Model fitting and cross-validation results
 
@@ -241,7 +243,7 @@ Provide implementation details and include results from cross-validation or othe
 
 The model we are proposing is 
 
-$$Gross Demand \sim wind + solar\_S + TE + daytype + month + start_year + start_year^2 + start_year^3 + \varepsilon,$$
+$$Gross Demand \sim wind + solar\_S + TE + daytype + month + start\_year + start\_year^2 + start\_year^3 + \varepsilon,$$
 
 where $daytype$ is a factor variable taking values "weekday" and "weekend", and month is a factor variable taking values "Nov", "Dec", "Jan", "Feb" and "Mar". This is important as we cannot consider month and day as continuous variables in the given dataset.
 
@@ -264,27 +266,34 @@ demand$month <- factor(demand$monthindex,
   levels = c(10, 11, 0, 1, 2), 
   labels = c("Nov", "Dec", "Jan", "Feb", "Mar")
 )
+demand$day <- factor(demand$wdayindex,
+                     levels = c(0, 1, 2, 3, 4, 5, 6),
+                     labels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                     )
 
 # models we are considering
 # final models we are considering
-m_0 <- lm(demand_gross ~ wind + solar_S + temp + factor(wdayindex) + month, data = demand) 
+m_0 <- demand_gross ~ wind + solar_S + temp + wdayindex + monthindex
 
-m_0_start_year_cubed <- lm(demand_gross ~ wind + solar_S + temp + factor(wdayindex) + month + poly(start_year, 3), data = demand)
+m_0_start_year_cubed <- demand_gross ~ wind + solar_S + temp + day + month + poly(start_year, 3)
 
-m_0_year_te <- lm(demand_gross ~ wind + solar_S + TE + factor(wdayindex) + month + poly(start_year, 3), data = demand)
+m_0_year_te <- demand_gross ~ wind + solar_S + TE + day + month + poly(year, 3)
 
-m_0_year_te_daytype <- lm(demand_gross ~ wind + solar_S + TE + daytype + month + poly(start_year, 3), data = demand)
+m_0_year_te_daytype <- demand_gross ~ wind + solar_S + TE + daytype + month + poly(start_year, 3)
 
-m_prestep <- lm(demand_gross ~ (wind + solar_S + TE + factor(wdayindex) + month + poly(start_year, 3))^2, data = demand)
+m_prestep <- demand_gross ~ (wind + solar_S + TE + day + month + poly(start_year, 3))^2
 
-m_final <- step(m_prestep, direction = "backward")
+m_backward <- step(lm(m_prestep, demand), direction = "backward", trace = 0)$terms
+
+
+## forward and backward?
 
 # putting all these models into a vector for comparison
-lms <- list(m_0, m_0_start_year_cubed, m_0_year_te_daytype, m_prestep, m_final)
-names <- c("m0", "Poly start_year, TE, interactions", "Poly start_year, TE, interactions, poly daytype", "Best model")
+formulas <- list(m_0, m_0_start_year_cubed, m_0_year_te_daytype, m_prestep, m_backward, m_0_year_te)
+names <- c("m0", "Poly start_year, TE, interactions", "Poly start_year, TE, interactions, poly daytype", "Best model", "Backward", "No interactions")
 
 # creating the comparison table
-comparison_df <- comparison(lms, names, demand)
+comparison_df <- comparison(formulas, names, demand)
 colnames(comparison_df) <- c("Model", "$R^2$", "Adjusted $R^2$", "AIC", "BIC", "RMSE")
 
 ```
@@ -306,15 +315,15 @@ As well as metrics, the validity of our model can be shown by testing on histori
 
 ```{r historical, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 # predicting for just m0 and our best model
-m0_prediction <- lm_predicting(m0, demand)
+m0_prediction <- lm_predicting(m_0, demand)
 m0_plot <- plotting(m0_prediction, demand)
 
-best_prediction <- lm_predicting(best, demand)
-best_plot <- plotting(best_prediction, demand)
+backward_prediction <- lm_predicting(m_backward, demand)
+best_plot <- plotting(backward_prediction, demand)
 
 # creating a dataset with predicted and actual data
 m0_data <- cbind(m0_prediction, demand)
-best_data <- cbind(best_prediction, demand)
+backward_data <- cbind(backward_prediction, demand)
 
 # time?
 # pick an explanatory variable
@@ -330,7 +339,7 @@ m0_historical_daytype <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, co
     color = "Day type"  # Color legend label
   )
 
-best_historical_daytype <- ggplot(best_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
+back_historical_daytype <- ggplot(backward_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
   geom_point(alpha = 0.2) +
   geom_smooth(method = lm, se = TRUE) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
@@ -352,7 +361,7 @@ m0_historical_month <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, colo
     color = "Month"  # Color legend label
   )
 
-best_historical_month <- ggplot(best_data, aes(x = demand_gross, y = mean_pred, color = month)) +
+back_historical_month <- ggplot(backward_data, aes(x = demand_gross, y = mean_pred, color = month)) +
   geom_point(alpha = 0.2) +
   geom_smooth(method = lm, se = TRUE) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
@@ -365,7 +374,7 @@ best_historical_month <- ggplot(best_data, aes(x = demand_gross, y = mean_pred, 
 ```
 
 ```{r historical_plot, warning = FALSE, echo = TRUE, out.width="100%", cache = FALSE}
-grid.arrange(m0_historical_daytype, best_historical_daytype, m0_historical_month, best_historical_month, ncol = 2)
+grid.arrange(m0_historical_daytype, back_historical_daytype, m0_historical_month, back_historical_month, ncol = 2)
 ```
 
 ### Residuals
@@ -380,15 +389,19 @@ First, it is important to note that our data now has $daytype$ and $month$ as fa
 
 ```{r loocv, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 source("code.R")
-m0_formula <- demand_gross ~ 1 + wind + solar_S + temp + wdayindex + monthindex
-m0_scores <- monthly_rolling_model(demand, m0_formula)
+m0_scores <- monthly_rolling_model(demand, m_0)
 m0_scores$model <- "m0"
 
-best_formula <- demand_gross ~ (1 + wind + solar_S + TE + I(daytype)^2 + poly(month, 3) + poly(year, 3))^2
-best_scores <- monthly_rolling_model(demand, best_formula)
+best_scores <- monthly_rolling_model(demand, m_prestep)
 best_scores$model <- "Best"
 
-all_scores <- rbind(m0_scores, best_scores)
+backward_scores <- monthly_rolling_model(demand, m_backward)
+backward_scores$model <- "Backward"
+
+interactionless_scores <- monthly_rolling_model(demand, m_0_year_te)
+interactionless_scores$model <- "No Interactions"
+
+all_scores <- rbind(m0_scores, interactionless_scores)
 
 # m0_sample <- all_scores %>%
 #   filter(model == "m0") %>%     # Filter for 'm0' model
@@ -403,10 +416,10 @@ all_scores <- rbind(m0_scores, best_scores)
 #   group_by(model)
 
 score_summary <- all_scores %>%
-  group_by(model) %>%
-  summarise(se = mean(se),
-            ds = mean(ds),
-            int = mean(int))
+  group_by(month, model) %>%
+  summarise(mean_se = mean(se),
+            mean_ds = mean(ds),
+            mean_int = mean(int))
 
 ```
 
@@ -429,6 +442,7 @@ reg_plot <- ggplot(all_scores, aes(x = actual, y = mean, color = model)) +
   geom_point(alpha = 0.4) +                      # Scatter plot of actual vs predicted
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
   facet_wrap(~month) +
+  #ylim(2*10^4, 8*10^4) +
   labs(
     title = "Actual vs Predicted Demand",
     x = "Actual Demand",
@@ -439,30 +453,42 @@ reg_plot <- ggplot(all_scores, aes(x = actual, y = mean, color = model)) +
 
 ```
 
-```{r reg_plot, warning = FALSE, echo=TRUE, cache = FALSE}
+```{r reg_plot, warning = FALSE, echo=TRUE, cache = FALSE, out.width="100%"}
 reg_plot
 ```
 
 This is not a very good plot because there are some very far away points... what's going on?
 
-```{r scores_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+```{r scores_plotting,  warning = FALSE, echo=FALSE, cache = FALSE}
 se_plot <- ggplot(all_scores, aes(
   x = actual, 
   y = se, 
   color = model
-  )) +
-  
-geom_point()
+  )) + 
+  ylim(0, 5*10^8) +
+  geom_point() +
+  labs(
+    title = "Actual vs Squared Error",
+    x = "Actual Demand",
+    y = "SE",
+    color = "Model"
+    )
 
 ds_plot <- ggplot(all_scores, aes(
   x = actual, 
   y = ds, 
   color = model
   )) +
-geom_point()
+  geom_point() +
+  labs(
+    title = "Actual vs Dawid-Sebastiani Score",
+    x = "Actual Demand",
+    y = "DS",
+    color = "Model"
+    )
 ```
 
-```{r scores_plot, warning = FALSE, echo = TRUE, cache = FALSE}
+```{r scores_plot, warning = FALSE, echo = TRUE, cache = FALSE, out.width="100%"}
 grid.arrange(se_plot, ds_plot, ncol = 2)
 ```
 
@@ -472,21 +498,23 @@ grid.arrange(se_plot, ds_plot, ncol = 2)
 
 # create a dataframe to find the difference between scores for different models
 
-score_diff <- all_scores %>%
-  group_by(year, month) %>%
-  pivot_wider(
-    names_from = model,
-    values_from = se
-    )  
+m0_scores <- monthly_rolling_model(demand, m_0)
+m0_scores$m0_se <- m0_scores$se
+m0_scores$m0_ds <- m0_scores$ds
 
-%>% 
+interactionless_scores <- monthly_rolling_model(demand, m_0_year_te)
+interactionless_scores$inter_se <- interactionless_scores$se
+interactionless_scores$inter_ds <- interactionless_scores$ds
+
+scores_diff <- left_join(m0_scores, interactionless_scores, by = c("year", "month", "daytype")) %>%
   mutate(
-    se_diff = `se_m0` - `se_Best`,  # Use backticks to reference column names
-    ds_diff = `ds_m0` - `ds_Best`   # Use backticks to reference column names
+    # Step 3: Calculate the differences
+    se_diff = m0_se - inter_se,  # Difference between 'se' columns
+    ds_diff = m0_ds - inter_ds   # Difference between 'ds' columns
   ) %>%
   select(year, month, se_diff, ds_diff)
 
-statistic0 <- score_diff %>% 
+statistic0 <- scores_diff %>% 
   summarise(se = mean(se_diff), 
             ds = mean(ds_diff))
 
@@ -503,12 +531,12 @@ for (loop in seq_len(J)) {
   
   # sample random sign changes
   random_sign <- sample(c(-1, 1), 
-                        size = nrow(score_diff), 
+                        size = nrow(scores_diff), 
                         replace = TRUE)
   
-  statistic[loop, ] <- score_diff %>% 
-    summarise(se = mean(random_sign * se),
-              ds = mean(random_sign * ds))
+  statistic[loop, ] <- scores_diff %>% 
+    summarise(se = mean(random_sign * se_diff),
+              ds = mean(random_sign * ds_diff))
 }
 
 # now find the p values
@@ -591,15 +619,17 @@ From the plot above we can see that the max demand changes according to each wea
 # Define the different TO time ranges and TE rolling windows to explore
 time_ranges <- list(c(13, 15), c(14, 17), c(13, 18))  # Different TO periods (e.g., 1-3pm, 2-5pm, 1-6pm)
 rolling_windows <- c(2, 3, 5)  # Different TE rolling average window sizes
-
+ 
 # Store results
 model_results <- data.frame(TimeRange = character(),
-                            TE_Window = integer(),
-                            AIC = numeric(),
-                            R2 = numeric(),
-                            stringsAsFactors = FALSE)
-
+                             TE_Window = integer(),
+                             AIC = numeric(),
+                             R2 = numeric(),
+                             stringsAsFactors = FALSE)
+ 
 print(model_results)
+```
+ 
 # Conclusion
 
 Summarize here the key insights from your analysis, focusing on the final model’s predictive performance, reliability, and practical relevance for NESO. Discuss the importance of the selected covariates, as well as any observed limitations or assumptions that should be considered when applying the model in practice.
