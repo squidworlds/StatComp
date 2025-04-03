@@ -174,6 +174,64 @@ Including day of the week as a factor variable in the model ensures that all var
 
 The next step is to explore interactions that can help improve the model accuracy. Interactions allow us to capture relationships where the effect of one variable on peak demand depends on the value of another.
 
+```{r interactions, echo=FALSE, out.width="90%"}
+solar_wday <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(wdayindex))) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method="lm", se=FALSE) +
+  scale_color_viridis_d() +
+  scale_color_manual(values = viridis::viridis(7), 
+                     labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) +
+  labs(title="Interaction Between Solar Generation and Day of the Week", 
+       x="Solar Generation", y="Peak Demand (MW)", color="Day of the Week") +
+  theme_bw()
+
+solar_month <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(monthindex, levels=c(11, 12, 0, 1, 2)))) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method="lm", se=FALSE) +
+  scale_color_viridis_d(option = "D", begin = 0, end = 1, 
+                        labels = c("November", "Decemeber", "January", "February", "March")) +
+  labs(title="Interaction Between Solar Generation and Month", 
+       x="Solar Generation", y="Peak Demand (MW)", color="Month") +
+  theme_bw()
+
+TE_month <- ggplot(demand, aes(x=TE, y=demand_gross, color=factor(monthindex, levels=c(11, 12, 0, 1, 2)))) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method="lm", se=FALSE) +
+  scale_color_viridis_d(option = "D", begin = 0, end = 1, 
+                        labels = c("November", "Decemeber", "January", "February", "March")) +
+  labs(title="Interaction Between Temperature and Month", 
+       x="Temperature (°C)", y="Peak Demand (MW)", color="Month") +
+  theme_bw()
+
+grid.arrange(solar_wday, solar_month, TE_month, ncol = 2, nrow = 2)
+```
+
+? When I get plots to work I can analyse properly.
+
+## Other Models Considered
+
+To develop a robust forecasting model for daily peak electricity demand, we explored several model formulations and refined them using stepwise selection.
+
+The provided base model, \[M_0:demand_gross=\beta\_0+\beta\_1 Wind_i+\beta_2Solar}_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i\] accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not? take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
+
+Furthermore, the initial model did not take capture long-term trends in electricity demand. The previous exploratory visualizations revealed that year variable, `start_year`, influenced peak demand, particularly in a cubic pattern. This insight led to the inclusion of `poly(start_year, 3)`. This was selected instead over the non-orthogonal polynomial, `start_year + I(start_year^2) + I(start_year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
+
+Given the hypothesis that TE (a rolling temperature variable) might be a better predictor than temp from the exploratory analysis, we replaced it and further analysis shows that this change led to a better model. This change aimed to smoothing out short-term fluctuations and incorporating lagged effects from previous days' temperatures, providing a more accurate predictor of peak demand.
+
+Our earlier plots also revealed the importance of interactions between variables on peak demand. Therefore, it was important our model contained at least two way interactions to accurately capture the relationships and improve predictive power. However, to mitigate the risk of overfitting and reduce the number of unnecessary explanatory variables, we refined the model further by applying backward stepwise regression. This method begins with the full model and irteratively removed the least significant variables. At each step, the model's performance is assessed using the Akaike Information Criterion (AIC), which balances model fit and complexity. The predictor that results in the smallest increase in AIC is removed, and the process continues until no further improvements can be made. This approach helps prevent overfitting by simplifying the model while retaining its predictive power. 
+
+This leaves us with the final model:\[
+\begin{aligned}
+M1: \text{demand\_gross}_i = & \, \beta_0 + \beta_1 \cdot \text{wind}_i + \beta_2 \cdot \text{solar\_S}_i + \beta_3 \cdot \text{TE}_i + \beta_4 \cdot \text{factor(wdayindex)}_i + \beta_5 \cdot \text{month}_i \\
+& + \beta_6 \cdot \text{poly(start\_year, 3)}_i + \beta_7 \cdot (\text{wind} \times \text{month})_i + \beta_8 \cdot (\text{wind} \times \text{poly(start\_year, 3)})_i \\
+& + \beta_9 \cdot (\text{solar\_S} \times \text{factor(wdayindex)})_i + \beta_{10} \cdot (\text{solar\_S} \times \text{month})_i \\
+& + \beta_{11} \cdot (\text{solar\_S} \times \text{poly(start\_year, 3)})_i + \beta_{12} \cdot (\text{TE} \times \text{month})_i \\
+& + \beta_{13} \cdot (\text{TE} \times \text{poly(start\_year, 3)})_i + \beta_{14} \cdot (\text{factor(wdayindex)} \times \text{month})_i \\
+& + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start\_year, 3)})_i + \epsilon_i
+\end{aligned}
+\]
+ where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\epsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
+
 # Model fitting and cross-validation results
 
 In this section you should detail your choice of model and describe the process used to refine and fit the model. You are encouraged to explore different models methods but you should not include a detailed narrative of all of these attempts. For instance, you can mention the approaches you tried tried and include a comparison but do not add in depth discussions of these models beyond why they were rejected. This section should mention the methods explored and why they were rejected, but most of your effort should go into describing the model you are using and your process for tuning and validating it.
