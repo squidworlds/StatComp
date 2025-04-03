@@ -155,6 +155,7 @@ day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(
 
 grid.arrange(month_plot, day_plot, ncol = 2, nrow = 1)
 ```
+The first plot illustrates the distribution of peak demand across different months. While the peak demand in most months appears relatively consistent, March stands out with a noticeably lower demand compared to the others. This drop in demand is possibly due to the improving weather and decreased heating demand. Given this distinct difference in March, it is likely the month variable will be an important factor to include in the modelling process.
 
 The violin plot for day of the week reveals several key trends in peak electricity demand. The data shows that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. ?conclusion The following table allows us to analyse the differences numerically.
 
