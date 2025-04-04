@@ -289,32 +289,43 @@ calculate_TE <- function(hourly_temp, demand, start_hour, end_hour, window) {
 #' Varying TE comparison table
 #' 
 # Loop through time ranges and rolling windows
-for (range in time_ranges) {
-  for (window in rolling_windows) {
-    # Generate TO and TE for the given time range and window
-    merged_data <- calculate_TE(hourly_temp, demand, start_hour = range[1], end_hour = range[2], window = window)
-    
-    # Get the dynamically named TE column
-    TE_col <- paste0("TE_", range[1], "_", range[2], "_", window)
-    
-    # Fit the model
-    model <- lm(demand_gross ~ wind + solar_S + merged_data[[TE_col]] + factor(wdayindex) + factor(monthindex) + poly(start_year, 3), data = merged_data)
-    
-    # Extract AIC and R squared
-    model_aic <- AIC(model)
-    model_r2 <- summary(model)$r.squared
-    
-    # Perform ANOVA between this model and m_final
-    anova_result <- anova(m_final, model)
-    anova_p <- anova_result$`Pr(>F)`[2]
-    
-    # Store the results
-    model_results <- rbind(model_results, data.frame(
-      TimeRange = paste(range[1], "-", range[2], sep = ""),
-      TE_Window = window,
-      AIC = model_aic,
-      R2 = model_r2,
-      ANOVA_p = anova_p
-    ))
+compare_TE_models <- function(hourly_temp, demand, time_ranges, rolling_windows) {
+  # Initialize results dataframe
+  model_results <- data.frame(
+    TimeRange = character(),
+    TE_Window = integer(),
+    AIC = numeric(),
+    R2 = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  # Loop through time ranges and rolling windows
+  for (range in time_ranges) {
+    for (window in rolling_windows) {
+      # Generate TO and TE for the given time range and window
+      merged_data <- calculate_TE(hourly_temp, demand, start_hour = range[1], end_hour = range[2], window = window)
+      
+      # Get the dynamically named TE column
+      TE_col <- paste0("TE_", range[1], "_", range[2], "_", window)
+      
+      # Fit the model
+      model <- lm(demand_gross ~ wind + solar_S + merged_data[[TE_col]] + factor(wdayindex) + 
+                    factor(monthindex) + poly(start_year, 3), data = merged_data)
+      
+      # Extract AIC and R²
+      model_aic <- AIC(model)
+      model_r2 <- summary(model)$r.squared
+
+      
+      # Store the results
+      model_results <- rbind(model_results, data.frame(
+        TimeRange = paste(range[1], "-", range[2], sep = ""),
+        TE_Window = window,
+        AIC = model_aic,
+        R2 = model_r2,
+      ))
+    }
   }
+  
+  return(model_results)
 }
