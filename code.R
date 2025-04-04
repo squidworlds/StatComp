@@ -255,8 +255,8 @@ simulate_max_demand <- function(weather_year) {
 #' 
 #' 
 calculate_TE <- function(hourly_temp, demand, start_hour, end_hour, window) {
-  # Extract the hour from the 'Time' column
-  hourly_temp$hour <- as.numeric(format(strptime(hourly_temp$Time, "%H:%M:%S"), "%H"))
+  # Extract the hour from the 'Date' column
+  hourly_temp$hour <- as.numeric(format(as.POSIXct(hourly_temp$Date, format = "%d/%m/%Y %H:%M"), "%H"))
   
   # Filter the hourly_temp dataframe to include only the hours in the given window
   hourly_temp_window <- hourly_temp %>%
