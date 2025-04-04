@@ -650,16 +650,12 @@ From the plot above we can see that the max demand changes according to each wea
 
 ```{r temp range, echo=FALSE}
 # Define the different TO time ranges and TE rolling windows to explore
-time_ranges <- list(c(13, 15), c(14, 17), c(13, 18))  # Different TO periods (e.g., 1-3pm, 2-5pm, 1-6pm)
+time_ranges <- list(c(13, 18), c(16, 20), c(17, 18)) 
 rolling_windows <- c(2, 3, 5)  # Different TE rolling average window sizes
- 
-# Store results
-model_results <- data.frame(TimeRange = character(),
-                             TE_Window = integer(),
-                             AIC = numeric(),
-                             R2 = numeric(),
-                             stringsAsFactors = FALSE)
- 
+
+# Run the function
+model_results <- compare_TE_models(hourly_temp, demand, time_ranges, rolling_windows)
+
 print(model_results)
 ```
  
