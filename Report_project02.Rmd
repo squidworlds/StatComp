@@ -294,11 +294,14 @@ m_aliya <- demand_gross ~ I(wdayindex^2) + monthindex + I(year^3) +
                   year:DSN + monthindex:year + DSN:start_year + monthindex:start_year + 
                   year:wind
 
+m_final <- demand_gross ~ wind + TE + day + month + poly(year, 3) + TE:month
+
+
 ## forward and backward?
 
 # putting all these models into a vector for comparison
-formulas <- list(m_0, m_0_start_year_cubed, m_0_year_te_daytype, m_prestep, m_both, m_0_year_te, m_aliya)
-names <- c("m0", "Poly start_year, TE, interactions", "Poly start_year, TE, interactions, poly daytype", "Prestep", "Backward and Forward", "No interactions", "Aliya")
+formulas <- list(m_0, m_0_start_year_cubed, m_0_year_te_daytype, m_prestep, m_both, m_0_year_te, m_final)
+names <- c("m0", "Poly start_year, TE, interactions", "Poly start_year, TE, interactions, poly daytype", "Prestep", "Backward and Forward", "No interactions", "Final")
 
 # creating the comparison table
 comparison_df <- comparison(formulas, names, demand)
@@ -329,9 +332,12 @@ m0_plot <- plotting(m0_prediction, demand)
 backward_prediction <- lm_predicting(m_backward, demand)
 best_plot <- plotting(backward_prediction, demand)
 
+final_prediction <- lm_predicting(m_final, demand)
+
 # creating a dataset with predicted and actual data
 m0_data <- cbind(m0_prediction, demand)
 backward_data <- cbind(backward_prediction, demand)
+final_data <- cbind(final_prediction, demand)
 
 # time?
 # pick an explanatory variable
@@ -347,7 +353,7 @@ m0_historical_daytype <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, co
     color = "Day type"  # Color legend label
   )
 
-back_historical_daytype <- ggplot(backward_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
+final_historical_daytype <- ggplot(final_data, aes(x = demand_gross, y = mean_pred, color = daytype)) +
   geom_point(alpha = 0.2) +
   geom_smooth(method = lm, se = TRUE) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
@@ -369,7 +375,7 @@ m0_historical_month <- ggplot(m0_data, aes(x = demand_gross, y = mean_pred, colo
     color = "Month"  # Color legend label
   )
 
-back_historical_month <- ggplot(backward_data, aes(x = demand_gross, y = mean_pred, color = month)) +
+final_historical_month <- ggplot(final_data, aes(x = demand_gross, y = mean_pred, color = month)) +
   geom_point(alpha = 0.2) +
   geom_smooth(method = lm, se = TRUE) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
@@ -382,7 +388,7 @@ back_historical_month <- ggplot(backward_data, aes(x = demand_gross, y = mean_pr
 ```
 
 ```{r historical_plot, warning = FALSE, echo = TRUE, out.width="100%", cache = FALSE}
-grid.arrange(m0_historical_daytype, back_historical_daytype, m0_historical_month, back_historical_month, ncol = 2)
+grid.arrange(m0_historical_daytype, final_historical_daytype, m0_historical_month, final_historical_month, ncol = 2)
 ```
 
 ### Residuals
@@ -393,7 +399,7 @@ We'll want to include residuals plots here.
 
 As well as testing on historical data, our final model can be tested on future data. One way of doing this is by performing cross-validation.
 
-First, it is important to note that our data now has $daytype$ and $month$ as factor variables. We will perform rolling-window cross-validation to compare how the model predicts in the different winter months that we are given. We will train on 3 years, and test on the next year, then move our testing window forward by 1 year. Here I am comparing the basic model, $m0$, and our final model, $Best$. To examine how well the models predict, we analyse scores. These are shown in the table below.
+First, it is important to note that our data now has $daytype$ and $month$ as factor variables. We will perform rolling-window cross-validation to compare how the model predicts in the different winter months that we are given. We will train on 3 years, and test on the next year, then move our testing window forward by 1 year. Here I am comparing the basic model, $m0$, and our final model, $Best$?.
 
 ```{r loocv, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 source("code.R")
@@ -409,32 +415,22 @@ backward_scores$model <- "Backward"
 interactionless_scores <- monthly_rolling_model(demand, m_0_year_te)
 interactionless_scores$model <- "No Interactions"
 
-aliya_scores <- monthly_rolling_model(demand, m_aliya)
-aliya_scores$model <- "Aliya"
+final_scores <- monthly_rolling_model(demand, m_final)
+final_scores$model <- "Final"
 
-all_scores <- rbind(m0_scores, backward_scores, interactionless_scores)
-
-# m0_sample <- all_scores %>%
-#   filter(model == "m0") %>%     # Filter for 'm0' model
-#   sample_n(5, replace = FALSE)
-# 
-# best_sample <- all_scores %>%
-#   filter(model == "Best") %>%   # Filter for 'best' model
-#   sample_n(5, replace = FALSE)
-# 
-# combined_sample <- rbind(m0_sample, best_sample) %>%
-#   arrange(model, year, month) %>%
-#   group_by(model)
+all_scores <- rbind(m0_scores, final_scores)
 
 score_summary <- all_scores %>%
-  group_by(month, model) %>%
+  group_by(model, month) %>%
   summarise(mean_se = mean(se),
             mean_ds = mean(ds),
             mean_int = mean(int))
 
+colnames(score_summary) <- c("Model", "Month", "Mean SE", "Mean DS", "Mean Interval Score")
+
 ```
 
-```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE}
+```{r scores_table, warning = FALSE, echo=TRUE, out.width="50%", cache = FALSE, caption="Score comparison of models with respect to month."}
 kable(score_summary)
 ```
 
@@ -442,33 +438,56 @@ Do some score analysis here, check out tutorials 7,9,10 and lecture 7 slides.
 
 The table above shows the average Squared Error (se), average Dawid-Sebastiani score (ds) and the average Interval score (int) for the basic model and our final model. These are all negatively-oriented scores, therefore we want them to be as small as possible.
 
-Squared Error $S_{SE}(F, y) = (y − \hat{y}_F)^2$ is based on means, and gives us no information for uncertainty. Therefore the difference between the SE is not significant. On the other hand, the Dawid-Sebastiani score $S_{DS}(F, y) = \frac{(y−\mu_F)^2}{\sigma_F^2} + \log(\sigma_F^2)$ takes into account the variance of the prediction, and therefore we can use the DS score to indicate that model 0 is better??. Finally, the Interval score $S_{INT}(F, y) = U_F − L_F + \frac{2}{\alpha}(L_F - y)\mathbb{I}(y < L_F ) + \frac{2}{\alpha}(y − U_F)\mathbb{I}(y > U_F)$ shows us the coverage of our prediction. We want the difference between $U_F$ and $L_F$, the upper and lower bounds for our prediction F, to be as small as possible while still covering the value as much as possible. Therefore we can conclude that model .. is better.
+Squared Error $S_{SE}(F, y) = (y − \hat{y}_F)^2$ is based on means, and gives us no information for uncertainty. Therefore the difference between the SE is not significant. On the other hand, the Dawid-Sebastiani score $S_{DS}(F, y) = \frac{(y−\mu_F)^2}{\sigma_F^2} + \log(\sigma_F^2)$ takes into account the variance of the prediction, and therefore we can use the DS score to indicate that our final model, ?, is better than $m0$. Finally, the Interval score $S_{INT}(F, y) = U_F − L_F + \frac{2}{\alpha}(L_F - y)\mathbb{I}(y < L_F ) + \frac{2}{\alpha}(y − U_F)\mathbb{I}(y > U_F)$ shows us the coverage of our prediction. We want the difference between $U_F$ and $L_F$, the upper and lower bounds for our prediction F, to be as small as possible while still covering the value as much as possible. Therefore we can conclude that model ? is better.
 
 
 We can also examine graphs.
 
-```{r reg_plotting,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+```{r reg_plotting_month,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 # plotting actual and mean vs month for a single model at a time
-reg_plot <- ggplot(all_scores, aes(x = actual, y = mean, color = model)) +
+reg_plot_month <- ggplot(all_scores, aes(x = actual, y = mean, color = model)) +
   geom_point(alpha = 0.4) +                      # Scatter plot of actual vs predicted
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
   facet_wrap(~month) +
   #ylim(2*10^4, 8*10^4) +
   labs(
-    title = "Actual vs Predicted Demand",
+    title = "Actual vs Predicted Demand for Months",
     x = "Actual Demand",
     y = "Predicted Demand",
     color = "Model"
     )
-
-
 ```
 
-```{r reg_plot, warning = FALSE, echo=TRUE, cache = FALSE, out.width="100%"}
-reg_plot
+```{r reg_plot_month, warning = FALSE, echo=TRUE, cache = FALSE, out.width="100%", caption = "Model prediction comparison with respect to month."}
+reg_plot_month
 ```
 
-This is not a very good plot because there are some very far away points... what's going on?
+This is a regression plot showing Actual against Predicted Demand to compare our models. After performing rolling-window cross-validation, we have tested our model to see how well it predicts on the data we have. These plots show how close our model predicts to the actual value. When the model is most accurate, the points lie on the black dashed $y=x$ line. These plots also give us information on how well our model predicts across the different months. For example, our final model ? is better at predicting in November and February compared to December, January and March, as the spread of points is much less.
+
+We can also compare performance across weekend and weekday.
+
+```{r reg_plotting_daytype,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
+# plotting actual and mean vs daytype for a single model at a time
+reg_plot_daytype <- ggplot(all_scores, aes(x = actual, y = mean, color = model)) +
+  geom_point(alpha = 0.4) +                      # Scatter plot of actual vs predicted
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # Line y=x for reference
+  facet_wrap(~daytype) +
+  #ylim(2*10^4, 8*10^4) +
+  labs(
+    title = "Actual vs Predicted Demand for Day Type",
+    x = "Actual Demand",
+    y = "Predicted Demand",
+    color = "Day type"
+    )
+```
+
+```{r reg_plot_daytype, warning = FALSE, echo=TRUE, cache = FALSE, out.width="100%", caption = "Model prediction comparison with respect to month."}
+reg_plot_daytype
+```
+
+These plots show that our model ? is significantly better than $m0$ for predicting on weekdays, but the difference between the two models is not as clear for weekend data. However, this could be because there is less weekend data, so to further analyse, we look more closely at scores.
+
+
 
 ```{r scores_plotting,  warning = FALSE, echo=FALSE, cache = FALSE}
 se_plot <- ggplot(all_scores, aes(
@@ -498,9 +517,15 @@ ds_plot <- ggplot(all_scores, aes(
     )
 ```
 
-```{r scores_plot, warning = FALSE, echo = TRUE, cache = FALSE, out.width="100%"}
+```{r scores_plot, warning = FALSE, echo = TRUE, cache = FALSE, out.width="100%", caption = "Relationship between scores and demand_gross values."}
 grid.arrange(se_plot, ds_plot, ncol = 2)
 ```
+
+These plots show that the majority of scores for each value of $demand\_gross$ using our model is better than those for $m0$. The minority of SE and DS values that are significantly greater are discussed in the limitations of our model.
+
+We can also look at scores for each month in the following figure.
+
+
 
 ## Exchangeability Test
 
