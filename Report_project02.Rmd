@@ -29,12 +29,14 @@ suppressPackageStartupMessages(library(viridis))
 theme_set(theme_bw(base_size = 9))
 
 demand <- read.csv("SCS_demand_modelling.csv")
+hourly_temp <- read.csv("SCS_hourly_temp.csv")
 
 set.seed(12345L)
 ```
 
 ```{r reading_code, code=readLines("code.R"), eval=TRUE, echo=FALSE}
 source("code.R")
+
 ```
 
 # Introduction- part completed
@@ -281,16 +283,22 @@ m_0_year_te <- demand_gross ~ wind + solar_S + TE + day + month + poly(year, 3)
 
 m_0_year_te_daytype <- demand_gross ~ wind + solar_S + TE + daytype + month + poly(start_year, 3)
 
-m_prestep <- demand_gross ~ (wind + solar_S + TE + day + month + poly(start_year, 3))^2
+m_prestep <- demand_gross ~ (wind + solar_S + TE + day + month + poly(year, 3))^2
 
-m_backward <- step(lm(m_prestep, demand), direction = "backward", trace = 0)$terms
+m_both <- formula(step(lm(m_0_year_te, demand), direction = "forward", trace = 0))
 
+m_aliya <- demand_gross ~ I(wdayindex^2) + monthindex + I(year^3) + 
+                  TE + I(DSN^2) + wdayindex + year + DSN + start_year + temp + 
+                  TO + wind + TE:year + monthindex:DSN + year:start_year + 
+                  DSN:temp + DSN:TO + TE:TO + TE:temp + wdayindex:start_year + 
+                  year:DSN + monthindex:year + DSN:start_year + monthindex:start_year + 
+                  year:wind
 
 ## forward and backward?
 
 # putting all these models into a vector for comparison
-formulas <- list(m_0, m_0_start_year_cubed, m_0_year_te_daytype, m_prestep, m_backward, m_0_year_te)
-names <- c("m0", "Poly start_year, TE, interactions", "Poly start_year, TE, interactions, poly daytype", "Best model", "Backward", "No interactions")
+formulas <- list(m_0, m_0_start_year_cubed, m_0_year_te_daytype, m_prestep, m_both, m_0_year_te, m_aliya)
+names <- c("m0", "Poly start_year, TE, interactions", "Poly start_year, TE, interactions, poly daytype", "Prestep", "Backward and Forward", "No interactions", "Aliya")
 
 # creating the comparison table
 comparison_df <- comparison(formulas, names, demand)
@@ -393,7 +401,7 @@ m0_scores <- monthly_rolling_model(demand, m_0)
 m0_scores$model <- "m0"
 
 best_scores <- monthly_rolling_model(demand, m_prestep)
-best_scores$model <- "Best"
+best_scores$model <- "Prestep"
 
 backward_scores <- monthly_rolling_model(demand, m_backward)
 backward_scores$model <- "Backward"
@@ -401,7 +409,10 @@ backward_scores$model <- "Backward"
 interactionless_scores <- monthly_rolling_model(demand, m_0_year_te)
 interactionless_scores$model <- "No Interactions"
 
-all_scores <- rbind(m0_scores, interactionless_scores)
+aliya_scores <- monthly_rolling_model(demand, m_aliya)
+aliya_scores$model <- "Aliya"
+
+all_scores <- rbind(m0_scores, backward_scores, interactionless_scores)
 
 # m0_sample <- all_scores %>%
 #   filter(model == "m0") %>%     # Filter for 'm0' model
@@ -465,7 +476,6 @@ se_plot <- ggplot(all_scores, aes(
   y = se, 
   color = model
   )) + 
-  ylim(0, 5*10^8) +
   geom_point() +
   labs(
     title = "Actual vs Squared Error",
@@ -507,12 +517,10 @@ interactionless_scores$inter_se <- interactionless_scores$se
 interactionless_scores$inter_ds <- interactionless_scores$ds
 
 scores_diff <- left_join(m0_scores, interactionless_scores, by = c("year", "month", "daytype")) %>%
-  mutate(
-    # Step 3: Calculate the differences
-    se_diff = m0_se - inter_se,  # Difference between 'se' columns
-    ds_diff = m0_ds - inter_ds   # Difference between 'ds' columns
-  ) %>%
-  select(year, month, se_diff, ds_diff)
+  summarise(
+    se_diff = m0_se - inter_se,
+    ds_diff = m0_ds - inter_ds
+  )
 
 statistic0 <- scores_diff %>% 
   summarise(se = mean(se_diff), 
@@ -541,8 +549,8 @@ for (loop in seq_len(J)) {
 
 # now find the p values
 p_values <- statistic %>%
-  summarise(se = mean(se > statistic0$se),
-            ds = mean(ds > statistic0$ds))
+  summarise(se = mean(abs(se) > abs(statistic0$se)),
+            ds = mean(abs(ds) > abs(statistic0$ds)))
 
 # Estimates:
 p_values
