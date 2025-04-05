@@ -28,8 +28,8 @@ suppressPackageStartupMessages(library(kableExtra))
 suppressPackageStartupMessages(library(viridis))
 theme_set(theme_bw(base_size = 9))
 
-demand <- read.csv("SCS_demand_modelling.csv")
-hourly_temp <- read.csv("SCS_hourly_temp.csv")
+demand <- read.csv("C:\\Users\\Ella Park\\Desktop\\Year 3\\Sem 2\\Statistical Computing\\Project02\\Project02\\SCS_demand_modelling.csv")
+hourly_temp <- read.csv("C:\\Users\\Ella Park\\Desktop\\Year 3\\Sem 2\\Statistical Computing\\Project02\\Project02\\SCS_hourly_temp.csv")
 
 set.seed(12345L)
 ```
@@ -76,7 +76,6 @@ wind_plot <- ggplot(demand, aes(x=wind, y=demand_gross)) +
 # Solar vs demand
 solar_plot <- ggplot(demand, aes(x=solar_S, y=demand_gross)) +
   geom_point(alpha=0.5, color=viridis(5)[5]) +
-  geom_smooth(method="lm", color="red") +
   labs(title="Peak Demand vs Solar Capacity Factor", x="Solar Capacity Factor", y="Peak Demand (MW)") +
   theme_bw()
 
