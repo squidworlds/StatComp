@@ -728,6 +728,10 @@ From the plot above we can see that the max demand changes according to each wea
 
 One possible explanation is that older weather years reflect colder and harsher winters, which would lead to increased heating demand. In contrast, the 2013/2014 winter may have been milder, potentially due to climate change, resulting in a lower actual peak demand. The overestimation of demand could also reflect societal shifts toward more energy-conscious behaviour and improved efficiency. Additionally, the overall trend of declining electricity demand in later years, driven by technological advancements and increased awareness, may explain why older weather conditions tend to overpredict demand when applied to the 2013/2014 structure. Finally particularly high predictions for certain years (such as 2010) likely reflect extreme weather events, highlighting how sensitive peak demand is to severe conditions.
 
+Temperature is a key driver of electricity demand, especially during winter, when colder conditions increase heating usage. NESO currently use TE to account for temperature which is the rolling average of the previous day's TO (average temperature between 3pm and 6pm). To assess whether TE is the most effective way to capture the temperature-demand relationship, we first examined the explanatory power of using TO directly in the model.
+
+Using TO as the temperature variable in our final model had a lower adjusted $R^2$ suggesting that daily temperature alone does not fully account for the variation in demand since using TE had an adjusted $R^2$ of 77.24%. This is likely because people’s energy use responds to patterns of cold weather over several days, not just the temperature on a single day.
+
 ```{r temp range, echo=FALSE}
 # Define the different TO time ranges and TE rolling windows to explore
 time_ranges <- list(c(13, 18), c(16, 20), c(17, 18)) 
