@@ -181,95 +181,37 @@ simulate_max_demand <- function(weather_year) {
       max_demand = max(predicted_demand, na.rm = TRUE))
 }
 
-#' Custom TE variable
+#' Simulating different TE
 #' 
-#' @param hourly_temp hourly temperature dataset
-#' @param demand demand dataset
-#' @param start_hour
-#' @param end_hour
-#' @param window
-
-calculate_TE <- function(hourly_temp, demand, start_hour, end_hour, window) {
-  # Extract the hour from the 'Time' column
-  hourly_temp$hour <- as.numeric(format(as.POSIXct(hourly_temp$Date, format = "%d/%m/%Y %H:%M"), "%H"))
-  
-  # Filter the hourly_temp dataframe to include only the hours in the given window
-  hourly_temp_window <- hourly_temp %>%
-    filter(hour >= start_hour & hour <= end_hour)
-  
-  # Calculate the average temperature (TO) for the specified time window
-  hourly_temp_window <- hourly_temp_window %>%
-    group_by(Date) %>%
-    summarise(TO = mean(temp, na.rm = TRUE))
-  # Create dynamic name for TO
-  TO_column_name <- paste("TO_", start_hour, "_", end_hour, "_", window, sep = "")
-  colnames(hourly_temp_window)[which(names(hourly_temp_window) == "TO")] <- TO_column_name
-  
-  # Convert the Date column to Date type in both datasets
-  hourly_temp_window$Date <- as.Date(hourly_temp_window$Date)
-  demand$Date <- as.Date(demand$Date)
-  
-  # Merge the new TO variable back into the demand dataset
-  merged_data <- left_join(demand, hourly_temp_window, by = "Date")
-  
-  # Calculate the rolling average for TE (e.g., TE_2 for 2-day rolling average)
-  TE_column <- paste("TE_", start_hour, "_", end_hour, "_", window, sep = "")
-  merged_data[[TE_column]] <- zoo::rollapply(merged_data$TO, width = window, FUN = mean, align = "right", fill = NA)
-  
-  # Return the updated dataset with TE column
-  return(merged_data)
-}
-
-
-#' Varying TE comparison table
+#' This function calculates the adjusted \( R^2 \) for different window sizes and compares the performance of models with rolling TE.
 #' 
-#' Loop through time ranges and rolling windows
-#' 
-#' @param hourly_temp hourly temperature dataset
-#' @param demand demand dataset
-#' @param time_ranges 
-#' @param rolling_windows
-
-compare_TE_models <- function(hourly_temp, demand, time_ranges, rolling_windows) {
-  # Initialize results dataframe
-  model_results <- data.frame(
-    TimeRange = character(),
-    TE_Window = integer(),
-    AIC = numeric(),
-    R2 = numeric(),
-    ANOVA_p = numeric(),
-    stringsAsFactors = FALSE
-  )
+#' @param data the given dataframe
+#' @param window_sizes A numeric vector of different window sizes (in days) to be used for calculating the rolling average of the TE variable
+calculate_rolling_r2 <- function(data, window_sizes) {# Ensure the Date is in POSIXct format
+  data <- data %>%
+    mutate(Date = dmy_hm(Date))
   
-  # Loop through time ranges and rolling windows
-  for (range in time_ranges) {
-    for (window in rolling_windows) {
-      # Generate TO and TE for the given time range and window
-      merged_data <- calculate_TE(hourly_temp, demand, start_hour = range[1], end_hour = range[2], window = window)
-      
-      # Get the dynamically named TE column
-      TE_col <- paste0("TE_", range[1], "_", range[2], "_", window)
-      
-      # Drop NA rows to ensure both models are trained on the exact same data
-      merged_data <- merged_data %>% drop_na(wind, TE_col, day, month, year, demand_gross)
-      # Fit the model
-      model <- lm(demand_gross ~ wind + TE + day + 
-                    month + poly(year, 3) + TE:month, data = merged_data)
-                          
-      # Extract AIC and RB2
-      model_aic <- AIC(model)
-      model_r2 <- summary(model)$r.squared
-      
-      # Store the results
-      model_results <- rbind(model_results, data.frame(
-        TimeRange = paste(range[1], "-", range[2], sep = ""),
-        TE_Window = window,
-        AIC = model_aic,
-        R2 = model_r2
-      ))
-    }
+  # Store results
+  results <- data.frame(window = numeric(), adj_r_squared = numeric())
+  
+  # Loop through the window sizes
+  for (window_size in window_sizes) {
+    
+    # Create the rolling average column for the given window size
+    data <- data %>%
+      arrange(Date) %>%
+      mutate(rolling_TE = rollapply(TE, width = window_size, FUN = mean, align = "right", fill = NA))
+    
+    # Fit the linear model using the rolling TE
+    model <- lm(demand_gross ~ wind + solar_S + rolling_TE + day + month + poly(year, 3), data = data)
+    
+    # Extract the adjusted R-squared value
+    adj_r_squared <- summary(model)$adj.r.squared
+    
+    # Store the result
+    results <- rbind(results, data.frame(window = window_size, adj_r_squared = adj_r_squared))
   }
   
-  return(model_results)
+  return(results)
 }
 
