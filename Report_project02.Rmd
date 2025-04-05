@@ -41,21 +41,21 @@ source("code.R")
 
 # Introduction
 
-Accurately forecasting future daily peak electricity demand is crucial for NESO's (National Electricity System Operator) planning and security of supply analysis. High demand events in winter pose the greatest risk of electricity shortfalls. Cold weather increases energy consumption, so we are particularly interested in modelling the upper tail of the demand distribution. This way, NESO can better anticipate extreme scenarios and allocate reserves efficiently.
+Accurately forecasting future daily peak electricity demand is crucial for NESO's (National Electricity System Operator) planning and ensuring security of supply, especially during winter when cold weather drives up demand and the risk of shortfalls is highest. To help anticipate extreme scenarios, we focus on modelling the upper tail of the demand distribution to help NESO allocate reserves efficiently.
 
-The primary dataset used, `SCS_demand_modelling.csv`, contains historical daily peak electricity demand data for Great Britain, focusing on winter months. The data spans from 1st November 1991 to 31st March 2014. Each row represents a single day, describing electricity demand and capturing key factors that influence this including weather conditions and renewable energy generation.
+We use historical daily peak demand data from the `SCS_demand_modelling.csv`, covering winter months from November 1991 to March 2014 across Great Britain. Each row represents a single day, describing electricity demand and capturing key factors that influence this including weather conditions and renewable energy generation.
 
-In this report, we develop and evaluate a linear regression model to estimate future peak demand using historical electricity demand data and relevant explanatory variables, focusing on the winter months where there is highest risk. We begin with a baseline model $m0$ incorporating key predictors such as wind and solar generation, temperature, and temporal factors. We then explore model refinements by incorporating additional covariates, considering adjustments for long-term trends and alternative temperature variables. In order to compare and select our best model, we discuss how well our model fits historic data, prediction accuracy and how peak demand varies under different weather conditions. To compare prediction accuracy, we construct a rolling-window cross-validation scheme that computes prediction scores across months and then weekdays versus weekends.
+This report develops and refines a linear regression model to estimate future peak demand. Starting with a baseline model $M_0$ using key predictors such as wind and solar generation, temperature, and time-related factors, we test refinements by adding covariates, accounting for long-term trends, and exploring alternative temperature metrics. In order to compare and select our best model, we evaluate how well our model fits historic data, predictive accuracy and how peak demand varies under different weather conditions. To compare prediction accuracy, we construct a rolling-window cross-validation scheme that computes prediction scores across months and then weekdays versus weekends.
 
-The final model is selected based on predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also discuss the limitations of the model and highlight areas for further improvement to enhance its accuracy and robustness.
-
-The result of our exploratory analysis, model creation and prediction testing is a simple model that could go further by taking into account more recent data, environmental factors and covariate-dependence.
+The final model is selected for its predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also address the model's limitations and suggest further improvements to enhance its accuracy and robustness. Our exploratory analysis, model development and testing is a simple model that could be improved by incorporating more recent data, environmental factors and covariate-dependence.
 
 # Data description and exploratory analysis
 
-A thorough understanding of the dataset is essential for building an effective forecasting model. This section explores key features relevant to modelling, highlighting important patterns through visualizations to inform model development and summarizes the preprocessing? steps undertaken.
+A thorough understanding of the dataset is essential for building an effective forecasting model. This section explores key features relevant to modelling, highlighting important patterns through visualizations to inform model development and summarizes the pre-analysis steps undertaken.
 
-We begin by analyzing the continuous variables from our dataset and their relationship to peak electricity demand. The key predictors to explore are:
+During the preprocessing phase, we confirmed that there were no missing values (NA) in the dataset. Outliers were examined, particularly those that could have been incorrectly inputted, ensuring data quality for model fitting. If we had evidence to support this for any data point we could have excluded it, however we didn't. This was also confirmed when checking the Cook's distance on leverage plots of our final model. The nature of each variable was checked to ensure correct data types (e.g. continuous, categorical) and categorical variables were renamed for easier analysis.
+
+We focus by analyzing the continuous variables and their relationship to peak electricity demand. The key predictors to explore are:
 
 -   Response variables: demand_gross (MW)- Peak electricity demand
 
@@ -64,7 +64,6 @@ We begin by analyzing the continuous variables from our dataset and their relati
     -   Weather factors: wind, solar_S, TE
 
     -   Temporal trends: year
-
 ```{r demand_scatters, echo=FALSE, warning=FALSE}
 # Wind vs demand
 wind_plot <- ggplot(demand, aes(x=wind, y=demand_gross)) +
@@ -107,23 +106,23 @@ suppressWarnings(grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_pl
 
 ### Peak Demand vs Wind Capacity Factor
 
-This is a scatter graph between the wind capacity factor and the daily peak electricity demand. It indicates a weak relationship, suggesting wind generation has only a minimal impact on peak demand. This is expected, as wind generation may not correlate strong with demand peaks, which are often influenced more by factors like temperature.
+The scatter plot between wind capacity factor and daily peak electricity demand shows a weak relationship, suggesting wind generation has minimal impact on peak demand. This is expected as demand peaks are probably more likely to be influenced by factors like temperature.
 
-The wind variable may not be a significant predictor and the regression coefficient is likely to be small. To analyse this, we check the coefficient and statistical significance in the p-value in our models (MAYBE INCLUDE VALUES?). Additionally, we use the $\texttt{step}$ function in R to perform backward stepwise regression. This method iteratively removes variables that variables that do not contribute significantly to the model, based on the Akaike Information Criterion (AIC). Later in this report, we see that wind is included in the final model, as the AIC does not improve upon its removal. This would indicate it holds some importance for predicting demand, even if the relationship is weak.
+The wind variable, though not a strong predictor, was statistically significant in our final model with a regression coefficient of 898.17, even at the 1% significance level. Additionally, we used the $\texttt{step}$ function to perform backward stepwise regression on another of our models. This method iteratively removes variables that do not contribute significantly to the model, based on the Akaike Information Criterion (AIC). Despite its weak relationship, wind remained in the model we conducted this on as its removal did not improve the AIC, indicating it still plays a role in predicting demand.
 
 ### Peak Demand vs Solar Capacity Factor
 
-Most points fall below 0.05, where there does not appear to be a strong correlation between solar and demand. However, beyond this, a clear negative correlation emerges, indicating that as solar generation increases, peak demand tends to decrease. This result is intuitive, as increased solar output reduces need for electricity in lighting, therefore decreasing demand and it supports the inclusion of solar as an explanatory variable in our model.
+Most points fall below 0.05, showing little correlation between solar and demand. However, a clear negative correlation appears beyond this threshold, suggesting that higher solar generation reduces peak demand. This is intuitive, as increased solar output reduces electricity needs for lighting supporting the inclusion of solar as an explanatory variable in our model.
 
-### Evaluating use of temp vs TE
+## Evaluating use of temp vs TE
 
-Both the scatter plots of temperature and TE against demand gross show a negative correlation where higher temperatures generally correspond to a lower electricity demand. This relationship makes intuitive sense, as warmer temperatures tend to reduce the need for heating, which is a significant factor in electricity demand during colder months. Given the clear consistent negative correlation, it was important to include one temperature variable in the model.
+Both the scatter plots of temperature and TE against demand show a negative correlation where higher temperatures generally correspond to a lower electricity demand. This relationship is expected, as higher temperatures tend to reduce the need for heating, a significant factor in electricity demand during colder months. Given the clear consistent negative correlation, it was important to include one temperature variable in the model.
 
-Both temp and TE variables cannot be included in the model since they are based on very similar temperature data. Including both variables would introduce multicolliniarity which could affect the regression results so we only select one. TE shows slightly less variation in demand compared to temp which includes on temperature at 6pm that day. This is because TE includes data from the day before, effectively smoothing out the fluctuations in temperature and providing a more stable representation of the temperature's influence on demand. This smoothing effect should help the model to capture long term temperature trends better than temperature alone, as it captures the lag in temperatures effect on energy. This helps to provide the hypothesis that TE is a more valuable measure of temperature than the temp variable. Subsequent analysis will provide evidence to support this.
+Since both temperature and TE are based on similar data, including both could introduce multicollinearity, so we select only one. TE shows slightly less variation in demand compared to temperature as it incorporated data from the previous day, smoothing out the fluctuations. This makes TE a more stable representation of the temperature's influence on demand helping the model to capture long term temperature trends better than temperature alone. This helps to provide the hypothesis that TE is a more valuable measure of temperature than the temp variable. Subsequent analysis will provide further evidence for this.
 
-### Peak Demand vs Winter Start Year
+### Peak Demand vs Year
 
-This plot reveals a correlation, suggesting that demand increases over time. However from this it is evident the relationship is more complex than a simple linear trend, following a cubic pattern. This implies that the the effect of the year variable on demand is not constant and changes as time progresses. There are a variety of reasons which this occurs such as reflecting long-term trends in energy usage, economic growth, policy changes or technological advancements. The following graphs visualize this hypothesis to assess whether a quadratic or cubic term improves the model's fit compared to the linear one.
+The plot reveals a correlation, suggesting that demand increases over time. However from this it is evident the relationship is more complex than a simple linear trend, following a cubic pattern. There are a variety of reasons which this occurs such as reflecting long-term trends in energy usage, economic growth, policy changes or technological advancements. The following graphs visualize this hypothesis to assess whether a quadratic or cubic term improves the model's fit compared to the linear one.
 
 ```{r exploring_year, echo=FALSE, warning=FALSE}
 year_quadratic <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
@@ -173,9 +172,9 @@ day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(
 grid.arrange(month_plot, day_plot, ncol = 2, nrow = 1)
 ```
 
-The first plot illustrates the distribution of peak demand across different months. While the peak demand in most months appears relatively consistent, March stands out with a noticeably lower demand compared to the others. This drop in demand is possibly due to the improving weather and decreased heating demand. Given this distinct difference in March, it is likely the month variable will be an important factor to include in the modelling process.
+The first plot illustrates the distribution of peak demand across different months. While the peak demand across most months appears relatively consistent, March has a noticeably lower demand. This drop in demand is possibly due to improving weather and decreased heating demand. Given this distinct difference This suggests that the month variable will be an important factor in the model.
 
-The violin plot for day of the week reveals several key trends in peak electricity demand. The data shows that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. ?conclusion The following table allows us to analyse the differences numerically.
+The violin plot for day of the week reveals that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. However, further analysis shows that this an oversimplification of the data.
 
 ```{r wday_eda_table, echo=FALSE, warning=FALSE}
 weekdays_stats <- data.frame(
@@ -190,37 +189,46 @@ weekdays_stats <- data.frame(
 kable(weekdays_stats)
 ```
 
-Friday stands out with slightly lower peak demand compared to other weekdays. Its median is nearly 2,000 MW lower than the average of the other weekdays which could be attributed to reduced business activity as the weekend approaches. In terms of weekday behavior, there is considerable overlap between the days. The medians for these days are quite close, indicating that demand is fairly consistent throughout the workweek. When comparing weekdays to weekends, there is a clear difference in the median values. Weekdays have a higher median peak demand around 52,000 MW, while weekends show lower values of 45,000 MW.
+Friday stands out with slightly lower peak demand compared to other weekdays with its median nearly 2,000 MW lower than the weekdays likely due to reduced business activity as the weekend approaches. Despite some variation, the medians for the weekdays are close, indicating relatively consistent demand throughout the workweek. Weekdays have a higher median peak demand (around 52,000 MW), while weekends show lower values (around 45,000 MW). 
 
-Including day of the week as a factor variable in the model ensures that all variations in demand across different days are incorporated into the model. This allows the regression to account for differences in peak demand as well as any subtle variations between individual weekdays. This should help the model more effectively capture demand patterns without oversimplifying the structure of the data. These differences lead us to hypothesise that this variable will be useful in the model and statistically significant. Our later analysis will confirm this.
+Including day of the week as a factor variable in the model ensures that variations across different days are incorporated into the model. This helps the model reflect real demand patterns without oversimplification, and later analysis confirms its usefulness and statistical significance.
 
 The next step is to explore interactions that can help improve the model accuracy. Interactions allow us to capture relationships where the effect of one variable on peak demand depends on the value of another.
 
-```{r interactions, echo=FALSE, warning=FALSE}
- solar_wday <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(wdayindex))) +
+```{r interactions, echo=FALSE}
+# making daytype and month into factor variables in our dataset
+demand$daytype <- factor(
+  ifelse(demand$wdayindex %in% 0:4, "Weekday", "Weekend"),
+  levels = c("Weekday", "Weekend")
+)
+demand$month <- factor(demand$monthindex,
+  levels = c(10, 11, 0, 1, 2), 
+  labels = c("Nov", "Dec", "Jan", "Feb", "Mar")
+)
+demand$day <- factor(demand$wdayindex,
+                     levels = c(0, 1, 2, 3, 4, 5, 6),
+                     labels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+                     )
+ solar_wday <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=day)) +
    geom_point(alpha=0.4) +
    geom_smooth(method="lm", se=FALSE) +
    scale_color_viridis_d() +
-   scale_color_manual(values = viridis::viridis(7), 
-                      labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")) +
    labs(title="Interaction Between Solar Generation and Day of the Week", 
         x="Solar Generation", y="Peak Demand (MW)", color="Day of the Week") +
    theme_bw()
  
- solar_month <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(monthindex, levels=c(11, 12, 0, 1, 2)))) +
+ solar_month <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=month)) +
    geom_point(alpha=0.4) +
    geom_smooth(method="lm", se=FALSE) +
-   scale_color_viridis_d(option = "D", begin = 0, end = 1, 
-                         labels = c("November", "Decemeber", "January", "February", "March")) +
+   scale_color_viridis_d() +
    labs(title="Interaction Between Solar Generation and Month", 
         x="Solar Generation", y="Peak Demand (MW)", color="Month") +
    theme_bw()
  
- TE_month <- ggplot(demand, aes(x=TE, y=demand_gross, color=factor(monthindex, levels=c(11, 12, 0, 1, 2)))) +
+ TE_month <- ggplot(demand, aes(x=TE, y=demand_gross, color=month)) +
    geom_point(alpha=0.4) +
    geom_smooth(method="lm", se=FALSE) +
-   scale_color_viridis_d(option = "D", begin = 0, end = 1, 
-                         labels = c("November", "Decemeber", "January", "February", "March")) +
+   scale_color_viridis_d() +
    labs(title="Interaction Between Temperature and Month", 
         x="Temperature (°C)", y="Peak Demand (MW)", color="Month") +
    theme_bw()
@@ -230,13 +238,9 @@ The next step is to explore interactions that can help improve the model accurac
 grid.arrange(solar_wday, solar_month, TE_month, ncol = 2, nrow = 2)
 ```
 
-? When I get plots to work I can analyse properly.
+These plots indicate that interactions should be considered in the model due to varying slopes, and we produced based on this. However, models that excluded interactions ultimately provided better predictive performance. It is difficult to draw conclusions with solar, as there are too few data points above the 0.5 threshold to perform a meaningful analysis visually.
 
 # Model fitting and cross-validation results
-
-In this section you should detail your choice of model and describe the process used to refine and fit the model. You are encouraged to explore different models methods but you should not include a detailed narrative of all of these attempts. For instance, you can mention the approaches you tried tried and include a comparison but do not add in depth discussions of these models beyond why they were rejected. This section should mention the methods explored and why they were rejected, but most of your effort should go into describing the model you are using and your process for tuning and validating it.
-
-Provide implementation details and include results from cross-validation or other model evaluation techniques, highlighting improvements and any trade-offs.
 
 ## Other Models Considered
 
@@ -244,25 +248,23 @@ To develop a robust forecasting model for daily peak electricity demand, we expl
 
 The provided base model, m0:
 
-$$demand\_gross = \beta_0 + \beta_1 wind_i + \beta_2solar\_S_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i$$ accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not? take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
+$$demand\_gross = \beta_0 + \beta_1 wind_i + \beta_2solar\_S_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i$$ accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
 
-Furthermore, the initial model did not take capture long-term trends in electricity demand. The previous exploratory visualizations revealed that year variable, `start_year`, influenced peak demand, particularly in a cubic pattern. This insight led to the inclusion of `poly(start_year, 3)`. This was selected instead over the non-orthogonal polynomial, `start_year + I(start_year^2) + I(start_year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
+Furthermore, the initial model did not take capture long-term trends in electricity demand. The previous exploratory visualizations revealed that year variable, `year`, influenced peak demand, particularly in a cubic pattern. This insight led to the inclusion of `poly(year, 3)`. This was selected instead over the non-orthogonal polynomial, `year + I(year^2) + I(year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
 
 Given the hypothesis that TE (a rolling temperature variable) might be a better predictor than temp from the exploratory analysis, we replaced it and further analysis shows that this change led to a better model. This change aimed to smoothing out short-term fluctuations and incorporating lagged effects from previous days' temperatures, providing a more accurate predictor of peak demand.
 
-Our earlier plots also revealed the importance of interactions between variables on peak demand. Therefore, it was important our model contained at least two way interactions to accurately capture the relationships and improve predictive power. However, to mitigate the risk of overfitting and reduce the number of unnecessary explanatory variables, we refined the model further by applying backward stepwise regression. This method begins with the full model and irteratively removed the least significant variables. At each step, the model's performance is assessed using the Akaike Information Criterion (AIC), which balances model fit and complexity. The predictor that results in the smallest increase in AIC is removed, and the process continues until no further improvements can be made. This approach helps prevent overfitting by simplifying the model while retaining its predictive power.
+Our earlier plots also revealed the potential importance of interactions between variables on peak demand. Therefore, it was important our model contained at least two way interactions to accurately capture the relationships and improve predictive power. However, to mitigate the risk of overfitting and reduce the number of unnecessary explanatory variables, we refined the model further by applying backward stepwise regression. This method begins with the full model and iteratively removed the least significant variables. At each step, the model's performance is assessed using the Akaike Information Criterion (AIC), which balances model fit and complexity. The predictor that results in the smallest increase in AIC is removed, and the process continues until no further improvements can be made.
 
-This leaves us with the final model:$$
+However, our analysis concluded that a simpler model without interactions had better predictive ability than a one without interactions. This led us to the final model This leaves us with the final model:$$
 \begin{aligned}
-\text{demand_gross}_i = & \, \beta_0 + \beta_1 \cdot \text{wind}_i + \beta_2 \cdot \text{solar_S}_i + \beta_3 \cdot \text{TE}_i + \beta_4 \cdot \text{factor(wdayindex)}_i + \beta_5 \cdot \text{month}_i \\
- & + \beta_6 \cdot \text{poly(start_year, 3)}_i + \beta_7 \cdot (\text{wind} \times \text{month})_i + \beta_8 \cdot (\text{wind} \times \text{poly(start_year, 3)})_i \\
- & + \beta_9 \cdot (\text{solar_S} \times \text{factor(wdayindex)})_i + \beta_{10} \cdot (\text{solar_S} \times \text{month})_i \\
- & + \beta_{11} \cdot (\text{solar_S} \times \text{poly(start_year, 3)})_i + \beta_{12} \cdot (\text{TE} \times \text{month})_i \\
- & + \beta_{13} \cdot (\text{TE} \times \text{poly(start_year, 3)})_i + \beta_{14} \cdot (\text{factor(wdayindex)} \times \text{month})_i \\
- & + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start_year, 3)})_i + \varepsilon_i
-\end{aligned}$$ where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\varepsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
+M_1: \text{Peak Demand} &= \beta_0 + \beta_1 \cdot \text{wind} + \beta_2 \cdot \text{solar}_S + \beta_3 \cdot \text{TE} \\
+&+ \sum_{i=1}^{6} \beta_{i+3} \cdot \text{day}_i + \sum_{j=1}^{3} \beta_{j+9} \cdot \text{month}_j \\
+&+ \beta_{12} \cdot \text{poly(year,3)_1} + \beta_{13} \cdot \text{poly(year,3)_2} + \beta_{14} \cdot \text{poly(year,3)_3} + \varepsilon_i
+\end{aligned}
+$$ where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,7$ are the regression coefficients and the $\varepsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
 
-To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R-Squared scores, and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
+To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R_Squared scores, and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
 
 ```{r comparing_models, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -749,21 +751,25 @@ suppressWarnings(kable(model_results))
 
 ## Model limitations
 
-By using a linear model, we have assumed that $demand\_gross$ is normally distributed, and that errors are normally distributed, $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$, and independent. We have also assumed heteroescadicity. This is problematic when considering time-series data, as constant mean and variance over time might not be the case. Our explanatory variables may not be independent, and by ignoring interactions between them, we could be underfitting our data. However, we have been able to explore these assumptions in the residual plots, and shown that our model is consistent in this case.
+Our model relies on a linear regression framework, which carries several assumptions. We have assumed that the response variable, `demand_gross` is normally distributed, and that errors, $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$, are independent and identically distributed with constant variance (homoscedasticity). However, these assumptions can be problematic in a time-series context, where both the mean and variance of the data may change over time. Our explanatory variables may also not be independent, and by ignoring interactions between them, we could be underfitting our data. Nonetheless, residual plots indicate that the linear model performs reasonably well for the data at hand, with no major violations of assumptions.
 
-Additionally, our model is constrained by the quality of the given data. As we are only using one dataset, there could be missing explanatory variables that haven't been taken into account. For example, our model aims to predict energy demand across the whole of the UK, but usage will vary from region-to-region, and be especially different in larger cities compared to remote areas. Our model could also consider bottlenecks such as Christmas, where energy demand will be disproportionately high compared to other days of winter. Even with the dataset we are given, we are only considering winter months, which means the model is much less accurate for predicting energy demand year-round.
+Additionally, our model is constrained by the quality of the data itself. As we are only using one dataset, there could be missing explanatory variables that haven't been taken into account. For example, our model aims to predict energy demand across the whole of the UK, but usage will vary from region-to-region, and be especially different in larger cities compared to remote areas. Our model could also consider bottlenecks such as Christmas, may experience unusual spikes in demand that the model does not account for explicitly. With our current dataset, we only consider winter months, which means the model is much less accurate for predicting energy demand year-round.
 
-Our model is also limited by environmental variables. Climate change is causing changes in variables such as $solar\_S$ and $temp$, but also societal reactions could mean that energy usage of 1993, or even 2013, is not an accurate predictor for the current year. We could improve our model by considering more recent data.
+Environmental and societal changes also present challenges. Variables like `solar_S` and `temp` are influenced by ongoing climate change, and shifts in consumer behaviour, energy efficiency, and policy may mean that historical demand data, especially from earlier years, are less representative of current or future patterns. Incorporating more recent data could help address these issues and improve model relevance.
 
-Another limitation could be the scalability of our linear model. While it is perfoming well with prediction here, it could be unsuited to larger datasets.
+Lastly, while linear regression is computationally efficient and interpretable, it may not scale well to larger or more complex datasets. While it is performing well with prediction here, it could be unsuited to larger datasets as the electricity system evolves. NESO may benefit from exploring more flexible modelling techniques such as random forests or other machine learning techniques, which can better handle non-linear relationships and interactions without overfitting.
 
 # Conclusion
 
-Our analysis has found that a simpler model is favoured for prediction, as interactions cause over-fitting on the data. This is shown through comparison of our model with a model that includes all interactions, as well as comparison with a backward-step regression model. why could this be? The predictive performance of our model is much higher than the basic model after taking into account historical data, as well as temperature values from the previous days. Additionally, our model performs consistently well across the winter months, although is less accurate in December and March. A reason for this could be that weather, specifically temperature, will be more extreme in these months. December is colder, and March is warmer on average. Therefore, NESO could benefit from different models for each month, as the difference in scores over the months, as shown in our plots, is significant.
+Our analysis finds that a simpler model is preferred for prediction, as including interactions results in over-fitting. This is shown by comparing our final model with both a full interaction model and a backward stepwise regression model. why could this be? While interaction terms can capture complex relationships between variables, they also substantially increase the number of parameters, making the model more sensitive to noise in the training data. This likely explains why the interaction model, despite fitting the historical data closely, performed worse in external prediction.
 
-By not considering interactions in our model, it is computationally less intensive for NESO to run, while also maintaining high prediction accuracy. However, a drawback of our model is that it doesn't contain any interactions between covariates. This could affect the scalability of our model. By assuming that our covariates are independent, our model could be underfitting our data. On the other hand, our model is supported by its relatively high adjusted $R^2$, fitting historical data well while also predicting better than models that consider interactions.
+In contrast, our model achieves a strong balance between accuracy and interpretability. By incorporating historical demand, temperature (including lagged values via the TE variable), and seasonal effects such as day of week and month, our model outperforms a baseline model. Although our model is less accurate in December and March, which may be due to greater variability and extreme temperatures during these transitional months; December is typically colder, and March marks a shift to warmer weather. Therefore, NESO could benefit from different models for each month, as the difference in scores over the months, as shown in our plots, are significant.
 
-In our initial explanatory data analysis, we saw that NESO ..? Importance of selected covariates? By performing rolling-window cross-validation, we have taken into account the time-series nature of the data, making sure not to train on future data to test on past data. As our model has the lowest mean DS score of 17.03901, it has high prediction accuracy. This supports NESO's long-term planning goals. Additionally, we are considering only winter months in order to focus on the time of year with the highest energy demand. This will mitigate the possibility that daily peak demand will exceed maximum supply capacity. By analysing our prediction by month, our final model can help NESO identify when electricity demand will change. NESO's goals are reached by our model, as when analysing model performance against demand, we have seen that the SE and DS scores decrease as demand increases.
+Though the model excludes interaction terms, it still achieves a relatively high adjusted $R^2$ indicating a good fit to historical data. While excluding interactions may underfit subtle relationships, it is computationally less intensive for NESO to run, while maintaining high prediction accuracy. However, the assumption of independence among predictors may limit the model’s scalability as more complex or higher-resolution data become available in future. Exploring selective interactions or nonlinear effects could be a worthwhile following investigation.
+
+Our exploratory data analysis supported the selection of key covariates. Temperature, solar, wind generation, and calendar effects showed strong associations with demand, both intuitively and statistically. For example, weekdays consistently had higher peak demand than weekends, solar generation showed an inverse relationship with demand, and TE emerged as a smoother and more informative temperature measure than daily temperature alone. 
+
+By performing rolling-window cross-validation, we have considered the time-series nature of the data, making sure not to train on future data to test on past data. As our model has the lowest mean DS score of 17.03901, it has high prediction accuracy. This supports NESO's long-term planning goals. By focusing only on winter months, the period of greatest risk for electricity shortfalls, we ensure the model is most effective where it matters most. This will mitigate the possibility that daily peak demand will exceed maximum supply capacity. By analysing our prediction by month, our final model will enable NESO to anticipate shifts in electricity demand, supporting informed decision-making.
 
 # Code Appendix
 
