@@ -736,18 +736,17 @@ Temperature is a key driver of electricity demand, especially during winter, whe
 
 Using TO as the temperature variable in our final model had a lower adjusted $R^2$ suggesting that daily temperature alone does not fully account for the variation in demand since using TE had an adjusted $R^2$ of 77.24%. This is likely because people’s energy use responds to patterns of cold weather over several days, not just the temperature on a single day.
 
-```{r temp range, echo=FALSE, warning=FALSE}
-# Define the different TO time ranges and TE rolling windows to explore
-time_ranges <- list(c(13, 18), c(16, 20), c(17, 18)) 
-rolling_windows <- c(2, 3, 5)  # Different TE rolling average window sizes
+We also experimented calculating TO over both a larger and shorter window for the TE variable, which resulted in lower $R^2$ values compared to using our current TE variable. Additionally, we explored rolling averages over 2, 3, and 5 days to. As the window size increased, the adjusted $R^2$ decreased suggesting that shorter windows capture more relevant variation in demand.
 
-# Run the function
-model_results <- compare_TE_models(hourly_temp, demand, time_ranges, rolling_windows)
+```{r temp range, echo=FALSE, warning=FALSE}
+# Call the function and get the results for rolling averages over 2, 3, and 5 days
+rolling_r2_results <- calculate_rolling_r2(demand, c(2, 3, 5))
 ```
 
 ```{r temp_comp, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE}
-suppressWarnings(kable(model_results))
+suppressWarnings(kable(rolling_r2_results))
 ```
+All models incorporating alternative TE variables exhibited lower adjusted $R^2$ than the original that explained 77.24% of the data. This indicates that our current TE calculation provides the most explanatory power, as it better captures the variance in demand relative to the other variations considered.
 
 ## Model limitations
 
