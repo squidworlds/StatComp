@@ -41,29 +41,21 @@ source("code.R")
 
 # Introduction
 
-Accurately forecasting future daily peak electricity demand is crucial for NESO's (National Electricity System Operator) planning and ensuring security of supply, especially during winter when cold weather drives up demand and the risk of shortfalls is highest. To help anticipate extreme scenarios, we focus on modelling the upper tail of the demand distribution to help NESO allocate reserves efficiently.
+Accurately forecasting future daily peak electricity demand is crucial for NESO especially during winter when cold weather drives up demand and the risk of shortfalls is highest. To help anticipate extreme scenarios, we focus on modelling the upper tail of the demand distribution to help NESO allocate reserves efficiently.
 
 We use historical daily peak demand data from the `SCS_demand_modelling.csv`, covering winter months from November 1991 to March 2014 across Great Britain. Each row represents a single day, describing electricity demand and capturing key factors that influence this including weather conditions and renewable energy generation.
 
-This report develops and refines a linear regression model to estimate future peak demand. Starting with a baseline model $M_0$ using key predictors such as wind and solar generation, temperature, and time-related factors, we test refinements by adding covariates, accounting for long-term trends, and exploring alternative temperature metrics. In order to compare and select our best model, we evaluate how well our model fits historic data, predictive accuracy and how peak demand varies under different weather conditions. To compare prediction accuracy, we construct a rolling-window cross-validation scheme that computes prediction scores across months and then weekdays versus weekends.
+This report develops and refines a linear regression model to forecast peak demand starting with a baseline model $M_0$ using weather and temporal predictors. Refinements include additional covariates, long-term trends, and improved temperature metrics. To compare and select our best model, we evaluate how our model fits historic data, predictive accuracy and how peak demand varies under different weather conditions. To compare prediction accuracy, we construct a rolling-window cross-validation scheme that computes prediction scores across months and then weekdays versus weekends.
 
-The final model is selected for its predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also address the model's limitations and suggest further improvements to enhance its accuracy and robustness. Our exploratory analysis, model development and testing is a simple model that could be improved by incorporating more recent data, environmental factors and covariate-dependence.
+The final model is selected for its predictive performance and interpretability, providing NESO with a reliable forecasting tool. We also highlight limitations and suggest future improvements, such as incorporating recent data and more complex dependencies.
 
 # Data description and exploratory analysis
 
-A thorough understanding of the dataset is essential for building an effective forecasting model. This section explores key features relevant to modelling, highlighting important patterns through visualizations to inform model development and summarizes the pre-analysis steps undertaken.
+A thorough understanding of the dataset is essential for effective forecasting. This section  highlights important patterns through visualizations to inform model development and summarizes the pre-analysis steps undertaken.
 
-During the preprocessing phase, we confirmed that there were no missing values (NA) in the dataset. Outliers were examined, particularly those that could have been incorrectly inputted, ensuring data quality for model fitting. If we had evidence to support this for any data point we could have excluded it, however we didn't. This was also confirmed when checking the Cook's distance on leverage plots of our final model. The nature of each variable was checked to ensure correct data types (e.g. continuous, categorical) and categorical variables were renamed for easier analysis.
+During preprocessing, we confirmed that there were no missing values in the dataset. Outliers were reviewed for potential input errors, but no evidence warranted their removal, ensuring data quality for model fitting. This was also confirmed when checking the Cook's distance on leverage plots of our final model. The nature of each variable was checked to ensure correct data types (e.g. continuous, categorical) and categorical variables were renamed for easier analysis.
 
-We focus by analyzing the continuous variables and their relationship to peak electricity demand. The key predictors to explore are:
-
--   Response variables: demand_gross (MW)- Peak electricity demand
-
--   Explanatory variables:
-
-    -   Weather factors: wind, solar_S, TE
-
-    -   Temporal trends: year
+Our analysis begins by analysing how continuous predictors, wind, solar_S, TE (temperature) and year relate to the response variable, peak electricity demand (demand_gross).
 ```{r demand_scatters, echo=FALSE, warning=FALSE}
 # Wind vs demand
 wind_plot <- ggplot(demand, aes(x=wind, y=demand_gross)) +
@@ -103,24 +95,15 @@ year_plot <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
 ```{r demand_scatters_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Plotting peak demand against explanatory variables."}
 suppressWarnings(grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_plot, ncol = 2))
 ```
-
-### Peak Demand vs Wind Capacity Factor
-
 The scatter plot between wind capacity factor and daily peak electricity demand shows a weak relationship, suggesting wind generation has minimal impact on peak demand. This is expected as demand peaks are probably more likely to be influenced by factors like temperature.
 
 The wind variable, though not a strong predictor, was statistically significant in our final model with a regression coefficient of 898.17, even at the 1% significance level. Additionally, we used the $\texttt{step}$ function to perform backward stepwise regression on another of our models. This method iteratively removes variables that do not contribute significantly to the model, based on the Akaike Information Criterion (AIC). Despite its weak relationship, wind remained in the model we conducted this on as its removal did not improve the AIC, indicating it still plays a role in predicting demand.
 
-### Peak Demand vs Solar Capacity Factor
-
 Most points fall below 0.05, showing little correlation between solar and demand. However, a clear negative correlation appears beyond this threshold, suggesting that higher solar generation reduces peak demand. This is intuitive, as increased solar output reduces electricity needs for lighting supporting the inclusion of solar as an explanatory variable in our model.
-
-## Evaluating use of temp vs TE
 
 Both the scatter plots of temperature and TE against demand show a negative correlation where higher temperatures generally correspond to a lower electricity demand. This relationship is expected, as higher temperatures tend to reduce the need for heating, a significant factor in electricity demand during colder months. Given the clear consistent negative correlation, it was important to include one temperature variable in the model.
 
 Since both temperature and TE are based on similar data, including both could introduce multicollinearity, so we select only one. TE shows slightly less variation in demand compared to temperature as it incorporated data from the previous day, smoothing out the fluctuations. This makes TE a more stable representation of the temperature's influence on demand helping the model to capture long term temperature trends better than temperature alone. This helps to provide the hypothesis that TE is a more valuable measure of temperature than the temp variable. Subsequent analysis will provide further evidence for this.
-
-### Peak Demand vs Year
 
 The plot reveals a correlation, suggesting that demand increases over time. However from this it is evident the relationship is more complex than a simple linear trend, following a cubic pattern. There are a variety of reasons which this occurs such as reflecting long-term trends in energy usage, economic growth, policy changes or technological advancements. The following graphs visualize this hypothesis to assess whether a quadratic or cubic term improves the model's fit compared to the linear one.
 
@@ -174,7 +157,7 @@ grid.arrange(month_plot, day_plot, ncol = 2, nrow = 1)
 
 The first plot illustrates the distribution of peak demand across different months. While the peak demand across most months appears relatively consistent, March has a noticeably lower demand. This drop in demand is possibly due to improving weather and decreased heating demand. Given this distinct difference This suggests that the month variable will be an important factor in the model.
 
-The violin plot for day of the week reveals that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. However, further analysis shows that this an oversimplification of the data.
+The violin plot for day of the week shows that peak electricity demand is generally higher on weekdays than weekends, reflecting increased consumption from offices and factories. 
 
 ```{r wday_eda_table, echo=FALSE, warning=FALSE}
 weekdays_stats <- data.frame(
@@ -189,9 +172,7 @@ weekdays_stats <- data.frame(
 kable(weekdays_stats)
 ```
 
-Friday stands out with slightly lower peak demand compared to other weekdays with its median nearly 2,000 MW lower than the weekdays likely due to reduced business activity as the weekend approaches. Despite some variation, the medians for the weekdays are close, indicating relatively consistent demand throughout the workweek. Weekdays have a higher median peak demand (around 52,000 MW), while weekends show lower values (around 45,000 MW). 
-
-Including day of the week as a factor variable in the model ensures that variations across different days are incorporated into the model. This helps the model reflect real demand patterns without oversimplification, and later analysis confirms its usefulness and statistical significance.
+While it may seem reasonable to simplify the model by grouping weekends, this overlooks important differences, particularly Friday, which has a median peak nearly 2,000 MW lower than other weekdays. Weekdays overall are fairly consistent, with median peaks around 52,000 MW, compared to about 45,000 MW on weekends. Including day of the week as a factor variable captures these variations without oversimplifying, and later analysis confirms its statistical significance.
 
 The next step is to explore interactions that can help improve the model accuracy. Interactions allow us to capture relationships where the effect of one variable on peak demand depends on the value of another.
 
@@ -246,13 +227,11 @@ These plots indicate that interactions should be considered in the model due to 
 
 To develop a robust forecasting model for daily peak electricity demand, we explored several model formulations and refined them using stepwise selection.
 
-The provided base model, m0:
+The provided base model, $m0$, accounted for key weather and temporal factors but overlooked categorical nature of both `wdayindex` (day of the week) and `monthindex` (month) which was an inappropriate simplification. We corrected this by modelling them as factors.
 
-$$demand\_gross = \beta_0 + \beta_1 wind_i + \beta_2solar\_S_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i$$ accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
+Additionally, long-term trends were not captured, despite exploratory analysis suggesting a cubic relationship between demand and year. This insight led to the inclusion of `poly(year, 3)`. This was selected instead over the non-orthogonal polynomial, `year + I(year^2) + I(year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
 
-Furthermore, the initial model did not take capture long-term trends in electricity demand. The previous exploratory visualizations revealed that year variable, `year`, influenced peak demand, particularly in a cubic pattern. This insight led to the inclusion of `poly(year, 3)`. This was selected instead over the non-orthogonal polynomial, `year + I(year^2) + I(year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
-
-Given the hypothesis that TE (a rolling temperature variable) might be a better predictor than temp from the exploratory analysis, we replaced it and further analysis shows that this change led to a better model. This change aimed to smoothing out short-term fluctuations and incorporating lagged effects from previous days' temperatures, providing a more accurate predictor of peak demand.
+Based on earlier findings, we also replaced temp with TE as it smoothed out short-term fluctuations and incorporated the lagged effects from previous days' temperatures, providing a more accurate predictor of peak demand.
 
 Our earlier plots also revealed the potential importance of interactions between variables on peak demand. Therefore, it was important our model contained at least two way interactions to accurately capture the relationships and improve predictive power. However, to mitigate the risk of overfitting and reduce the number of unnecessary explanatory variables, we refined the model further by applying backward stepwise regression. This method begins with the full model and iteratively removed the least significant variables. At each step, the model's performance is assessed using the Akaike Information Criterion (AIC), which balances model fit and complexity. The predictor that results in the smallest increase in AIC is removed, and the process continues until no further improvements can be made.
 
@@ -424,13 +403,13 @@ plot(lm(m_0_year_te, data = demand))
 
 ```
 
-The Residuals vs Fitted plot shows little change of variance with mean, so the constant variance assumption is upheld. The QQ Residuals plot the ordered standardised residuals against quantiles of a standard normal. For smaller sample size, the normality assumption is violated, but we can apply the central limit theorem in this case. Therefore this deviation from the normal line is not very significant. The values on the Scale-Location plot vary randomly about the mean, showing no obvious trend shown by the red line, so we can conclude that together with the top-left plot, the constant variance assumption is not violated when applying our final model to the data. Finally, the residuals vs leverage plot gives us Cook’s distance, which measures the change in all model fitted values on omission of the data point in question. Here, it is not problematic, so we can conclude that there are no outliers that need investigating for our model.
+The Residuals vs Fitted plot shows little change of variance with mean, so the constant variance assumption is upheld. The QQ Residuals plot the ordered standardised residuals against quantiles of a standard normal. For smaller sample size, the normality assumption is violated, but we can apply the central limit theorem in this case. Therefore this deviation from the normal line is not very significant. The values on the Scale-Location plot shows random variation around the mean, confirming no violation of the constant variance assumption. Finally, the residuals vs leverage plot gives us Cook’s distance, which measures the change in all model fitted values on omission of the data point in question. Here, it is not problematic, so we can conclude that there are no outliers that need investigating for our model.
 
 ## Cross-Validation
 
-As well as testing on historical data, our final model can be tested on future data. One way of doing this is by performing cross-validation.
+In addition to testing on historical data, we test the final model on future data using rolling-window cross-validation.
 
-First, it is important to note that our data now has $daytype$ and $month$ as factor variables. As we are using time-series data, we perform rolling-window cross-validation to compare how the model predicts in the different winter months that we are given. This trains on 3 years, and test on the following year, then move our testing window forward by 1 year. Here I am comparing the basic model, $m0$, and our final model.
+First, it is important to note that our data now has `daytype` and `month` as factor variables. As we are using time-series data, we perform rolling-window cross-validation training the model on 3 years and testing on the subsequent year, shifting the window forward annually. This compares the basic model, $m_0$ with the final model across winter months.
 
 ```{r loocv, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 source("code.R")
@@ -463,11 +442,11 @@ colnames(score_summary) <- c("Model", "Mean SE", "Mean DS", "Mean Interval Score
 kable(score_summary)
 ```
 
-The table above shows the average Squared Error (SE), average Dawid-Sebastiani score (DS) and the average Interval score for the basic model and our final model. These are all negatively-oriented scores, therefore we want them to be as small as possible.
+This table shows the average Squared Error (SE), average Dawid-Sebastiani score (DS) and the average Interval score for the basic model and our final model. As these are negatively-oriented scores, smaller values indicate better performance.
 
-Squared Error $S_{SE}(F, y) = (y − \hat{y}_F)^2$ is based on means, and gives us no information for uncertainty. Therefore the difference between the SE is not very significant for analysis.. On the other hand, the Dawid-Sebastiani score $S_{DS}(F, y) = \frac{(y−\mu_F)^2}{\sigma_F^2} + \log(\sigma_F^2)$ takes into account the variance of the prediction. Finally, the Interval score $S_{INT}(F, y) = U_F − L_F + \frac{2}{\alpha}(L_F - y)\mathbb{I}(y < L_F ) + \frac{2}{\alpha}(y − U_F)\mathbb{I}(y > U_F)$ shows us the coverage of our prediction. We want the difference between $U_F$ and $L_F$, the upper and lower bounds for our prediction F, to be as small as possible while still covering the value as much as possible.
+Squared Error $S_{SE}(F, y) = (y − \hat{y}_F)^2$ measures the difference from the mean but provides no insight into uncertainty, making differences in SE less important. On the other hand, the Dawid-Sebastiani score $S_{DS}(F, y) = \frac{(y−\mu_F)^2}{\sigma_F^2} + \log(\sigma_F^2)$ accounts for prediction variance. Finally, the Interval score $S_{INT}(F, y) = U_F − L_F + \frac{2}{\alpha}(L_F - y)\mathbb{I}(y < L_F ) + \frac{2}{\alpha}(y − U_F)\mathbb{I}(y > U_F)$ shows us the coverage of our prediction. We want the difference between $U_F$ and $L_F$, the upper and lower bounds for our prediction F, to be as small as possible while still covering the value as much as possible.
 
-We can use these score to justify the use of an more simplistic model with no interactions. The difference in mean scores shows that while models "Interactions" and "Backward" discussed above had higher adjusted $R^2$, when predicting they are less accurate.
+These scores justify the simpler model without interactions, as it shows better prediction accuracy despite having lower adjusted $R^2$ compared to more complex models like "Interactions" and "Backward".
 
 We can also examine graphs to see how the score varies by month.
 
@@ -513,7 +492,7 @@ int_month <- ggplot(monthly_summary, aes(x = month, y = mean_int, fill = model))
 grid.arrange(se_month, ds_month, int_month, ncol = 2)
 ```
 
-The above graphs shows that the interaction models are significantly worse for predicting. Particularly, the model with all interactions considered is much worse in March. Therefore, for the following analysis, we will only consider "m0", and "Final".
+These graphs show that the interaction models are significantly worse for predicting particularly, the model with all interactions is much worse in March. Therefore, we will focus on "m0", and "Final" for subsequent analysis.
 
 ```{r reg_plotting_month,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -536,11 +515,9 @@ ii_plot_month <- ggplot(ii_scores, aes(x = actual, y = mean, color = model)) +
 ii_plot_month
 ```
 
-This is a regression plot showing Actual against Predicted Demand to compare our models. After performing rolling-window cross-validation, we have tested our model to see how well it predicts on the data we have. These plots show how close our model predicts to the actual value. When the model is most accurate, the points lie on the black dashed $y=x$ line.
+This regression plot compares Actual vs Predicted Demand for our models after rolling-window cross-validation. Points along the black dashed $y=x$ line indicate accurate predictions. The plots reveal that our final model performs far better than $m_0$ and better in November and February, with tighter point clusters, while it struggles more in December, January, and March.
 
-These plots also give us information on how well our model predicts across the different months. For example, our final model is better at predicting in November and February compared to December, January and March, as the spread of points is much less.
-
-We can also compare performance across weekend and weekday.
+We can also assess performance across weekend and weekday.
 
 ```{r reg_plotting_daytype,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -562,7 +539,7 @@ reg_plot_daytype <- ggplot(ii_scores, aes(x = actual, y = mean, color = model)) 
 reg_plot_daytype
 ```
 
-These plots show that our final model is significantly better than $m0$ for predicting on weekdays, but the difference between the two models is not as clear for weekend data. However, this could be because there is less weekend data, so to further analyse, we look more closely at scores.
+These plots show that our final model outperforms $m0$ for predicting weekdays, though the difference is less pronounced for weekends, possibly due to limited weekend data. To investigate further, we will analyze the scores in more detail.
 
 ```{r scores_plotting,  warning = FALSE, echo=FALSE, cache = FALSE}
 se_plot <- ggplot(ii_scores, aes(
@@ -597,11 +574,11 @@ se_plot
 ds_plot
 ```
 
-These plots show that the majority of scores for each value of $demand\_gross$ using our model is better than those for $m0$. Additionally, the scores for higher gross demand are lower, which means that our model is better at predicting extreme values.
+These plots show that the majority of scores for each value of $demand\_gross$  are better using our model than those for $m0$. Additionally, lower scores for higher gross demand indicate that our model is better at predicting extreme values.
 
 ## Exchangeability Test
 
-We want to investigate whether our final model is better at predicting than $m0$. If they are equivalent, it should not matter, on average, if we randomly swap their prediction scores (SE and DS) within each cross-validation score pair $(S_i^A, S_i^B)$. We use the test statistic $\frac{1}{N} \sum_{i=1}^n(S_i^A - S_i^B)$, and make a Monte Carlo estimate of the p-value for a test of exchangeability between model predictions from $m0$ and from our model against the alternative hypothesis that our model is better than $m0$.
+To test if our final model is better at predicting than $m0$, we compare their prediction scores (SE and DS) by randomly swapping them within each cross-validation pair $(S_i^A, S_i^B)$. We use the test statistic $\frac{1}{N} \sum_{i=1}^n(S_i^A - S_i^B)$, and use a Monte Carlo approach to estimate the p-value for a test of exchangeability of predictions, with the alternative hypothesis that our model is superior to $m0$.
 
 ```{r exchange, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -661,11 +638,11 @@ kable(head(scores_diff))
 kable(p_values)
 ```
 
-We can see that our models are so different that they are not exchangeable. Therefore there is evidence to accept the hypothesis.
+We can see that our models are so different that they are not exchangeable. Therefore there is evidence to reject the null hypothesis.
 
 ## Maximum Annual Demand Variation
 
-We can test how the maximum annual demand of the 2013-2014 winter season changes based on weather conditions from previous winters. So using the data from each previous winter season we simulate the maximum annual demand for 2013 by using our model and predicting the values.
+We test how the maximum annual demand for the 2013-2014 winter season changes based on weather conditions from previous winters. Using data from each previous winter season, we simulate the 2013 maximum annual demand for 2013 by predicting values with our model.
 
 ```{r Max_Annual_Demand, warning = FALSE, echo = FALSE, out.width = "50%", cache = FALSE}
 
@@ -728,15 +705,17 @@ max_demand_plot <- ggplot(simulation_results, aes(x = as.factor(weather_year), y
 max_demand_plot
 ```
 
-From the plot above we can see that the max demand changes according to each weather year being used ranging from around 51, 800 MW (2006) to 54,750 MW (2010). Most of the weather years (except 1994, 2006, 2011) all predicted a higher demand than the true 2013 value and this could be because towards the later weather years the annual demand was decreasing.
+The plot shows that the maximum demand varies across weather years, ranging from around 51,800 MW (2006) to 54,750 MW (2010). Most years (except 1994, 2006, and 2011) predict higher demand than the actual 2013 value, possibly due to decreasing annual demand in recent years.
 
-One possible explanation is that older weather years reflect colder and harsher winters, which would lead to increased heating demand. In contrast, the 2013/2014 winter may have been milder, potentially due to climate change, resulting in a lower actual peak demand. The overestimation of demand could also reflect societal shifts toward more energy-conscious behaviour and improved efficiency. Additionally, the overall trend of declining electricity demand in later years, driven by technological advancements and increased awareness, may explain why older weather conditions tend to overpredict demand when applied to the 2013/2014 structure. Finally particularly high predictions for certain years (such as 2010) likely reflect extreme weather events, highlighting how sensitive peak demand is to severe conditions.
+One possible explanation is that older weather years reflect colder and harsher winters, which would lead to increased heating demand. In contrast, the 2013/2014 winter may have been milder, potentially due to climate change, resulting in a lower actual peak demand. The overestimation of demand could also reflect shifts towards more energy-conscious behaviour and improved efficiency. Additionally, the decline in electricity demand in later years, driven by technological advancements, may explain why older weather conditions overpredict demand for the 2013/2014 season. Finally particularly high predictions for certain years (such as 2010) likely reflect extreme weather events, highlighting how sensitive peak demand is to severe conditions.
 
-Temperature is a key driver of electricity demand, especially during winter, when colder conditions increase heating usage. NESO currently use TE to account for temperature which is the rolling average of the previous day's TO (average temperature between 3pm and 6pm). To assess whether TE is the most effective way to capture the temperature-demand relationship, we first examined the explanatory power of using TO directly in the model.
+## Alternative temperature variable 
 
-Using TO as the temperature variable in our final model had a lower adjusted $R^2$ suggesting that daily temperature alone does not fully account for the variation in demand since using TE had an adjusted $R^2$ of 77.24%. This is likely because people’s energy use responds to patterns of cold weather over several days, not just the temperature on a single day.
+Temperature is a key driver of electricity demand, especially during winter, when colder conditions increase heating usage. NESO currently use TEa rolling average of the previous day's TO (3pm-6pm temperature), to account for temperature in demand forecasting. To assess whether TE is optimal, we first compared it to using TO directly in the model.
 
-We also experimented calculating TO over both a larger and shorter window for the TE variable, which resulted in lower $R^2$ values compared to using our current TE variable. Additionally, we explored rolling averages over 2, 3, and 5 days to. As the window size increased, the adjusted $R^2$ decreased suggesting that shorter windows capture more relevant variation in demand.
+Using TO as the temperature variable resulted in a lower adjusted $R^2$ suggesting that daily temperature alone does not fully explain demand variation, whereas TE had an adjusted $R^2$ of 77.24%. This suggests that energy use responds to patterns of cold weather over several days, not just one day's temperature.
+
+We also experimented calculating TO over both a larger and shorter time frame (1pm-6pm and 5pm-6pm) for the TE variable, which resulted in lower $R^2$ values compared to using our current TE variable. Additionally, we explored rolling averages over 2, 3, and 5 days to investigate how incorporating more historical temperature data into the TE variable affects the model. As the window size increased, the adjusted $R^2$ decreased suggesting that adding too much past data dilutes the immediate temperature effects on demand.
 
 ```{r temp range, echo=FALSE, warning=FALSE}
 # Call the function and get the results for rolling averages over 2, 3, and 5 days
