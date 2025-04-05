@@ -47,7 +47,7 @@ The primary dataset used, `SCS_demand_modelling.csv`, contains historical daily 
 
 In this report, we develop and evaluate a linear regression model to estimate future peak demand using historical electricity demand data and relevant explanatory variables, focusing on the winter months where there is highest risk. We begin with a baseline model $m0$ incorporating key predictors such as wind and solar generation, temperature, and temporal factors. We then explore model refinements by incorporating additional covariates, considering adjustments for long-term trends and alternative temperature variables. In order to compare and select our best model, we discuss how well our model fits historic data, prediction accuracy and how peak demand varies under different weather conditions. To compare prediction accuracy, we construct a rolling-window cross-validation scheme that computes prediction scores across months and then weekdays versus weekends.
 
-The final model is selected based on predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also discuss the limitations of the model and highlight areas for further improvement to enhance its accuracy and robustness. 
+The final model is selected based on predictive performance and interpretability, providing NESO with a reliable tool for demand forecasting. We also discuss the limitations of the model and highlight areas for further improvement to enhance its accuracy and robustness.
 
 The result of our exploratory analysis, model creation and prediction testing is a simple model that could go further by taking into account more recent data, environmental factors and covariate-dependence.
 
@@ -105,10 +105,9 @@ year_plot <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
 suppressWarnings(grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_plot, ncol = 2))
 ```
 
-
 ### Peak Demand vs Wind Capacity Factor
 
-This is a scatter graph between the wind capacity factor and the daily peak electricity demand. It indicates a weak relationship, suggesting wind generation has only a minimal impact on peak demand. This is expected, as wind generation may not correlate strong with demand peaks, which are often influenced more by factors like temperature. 
+This is a scatter graph between the wind capacity factor and the daily peak electricity demand. It indicates a weak relationship, suggesting wind generation has only a minimal impact on peak demand. This is expected, as wind generation may not correlate strong with demand peaks, which are often influenced more by factors like temperature.
 
 The wind variable may not be a significant predictor and the regression coefficient is likely to be small. To analyse this, we check the coefficient and statistical significance in the p-value in our models (MAYBE INCLUDE VALUES?). Additionally, we use the $\texttt{step}$ function in R to perform backward stepwise regression. This method iteratively removes variables that variables that do not contribute significantly to the model, based on the Akaike Information Criterion (AIC). Later in this report, we see that wind is included in the final model, as the AIC does not improve upon its removal. This would indicate it holds some importance for predicting demand, even if the relationship is weak.
 
@@ -245,8 +244,7 @@ To develop a robust forecasting model for daily peak electricity demand, we expl
 
 The provided base model, m0:
 
-$$demand\_gross = \beta_0 + \beta_1 wind_i + \beta_2solar\_S_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i$$ 
-accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not? take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
+$$demand\_gross = \beta_0 + \beta_1 wind_i + \beta_2solar\_S_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i$$ accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not? take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
 
 Furthermore, the initial model did not take capture long-term trends in electricity demand. The previous exploratory visualizations revealed that year variable, `start_year`, influenced peak demand, particularly in a cubic pattern. This insight led to the inclusion of `poly(start_year, 3)`. This was selected instead over the non-orthogonal polynomial, `start_year + I(start_year^2) + I(start_year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
 
@@ -261,9 +259,8 @@ M1: \text{demand_gross}_i = & \, \beta_0 + \beta_1 \cdot \text{wind}_i + \beta_2
  & + \beta_9 \cdot (\text{solar_S} \times \text{factor(wdayindex)})_i + \beta_{10} \cdot (\text{solar_S} \times \text{month})_i \\
  & + \beta_{11} \cdot (\text{solar_S} \times \text{poly(start_year, 3)})_i + \beta_{12} \cdot (\text{TE} \times \text{month})_i \\
  & + \beta_{13} \cdot (\text{TE} \times \text{poly(start_year, 3)})_i + \beta_{14} \cdot (\text{factor(wdayindex)} \times \text{month})_i \\
- & + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start_year, 3)})_i + \epsilon_i
-\end{aligned}$$ 
-where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\epsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
+ & + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start_year, 3)})_i + \varepsilon_i
+\end{aligned}$$ where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\epsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
 
 To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R_Squared scores, and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
 
@@ -325,18 +322,18 @@ The final three rows of this table are the most significant, as we are comparing
 
 No interactions model:
 
-$$demand\_gross \sim wind + solar\_S + TE + day + month + poly(year, 3).$$
+$$demand\_gross \sim wind + solar\_S + TE + day + month + poly(year, 3) + \varepsilon.$$
 
 All interactions model:
 
-$$demand\_gross \sim (wind + solar\_S + TE + day + month + poly(year, 3))^2.$$ Backward step on all interactions model:
+$$demand\_gross \sim (wind + solar\_S + TE + day + month + poly(year, 3))^2 + \varepsilon.$$ Backward step on all interactions model:
 
 $$demand\_gross \sim wind + solar\_S + TE + day + month + poly(year, 3) + \\
 wind:month + wind:poly(year, 3) + \\
 solar\_S:day + solar\_S:month + \\
 TE:month + TE:poly(year, 3) + \\
 day:month + day:poly(year, 3) + \\
-month:poly(year, 3).$$
+month:poly(year, 3) + \varepsilon.$$
 
 In this table we are evaluating the results of the model fitting by checking metrics.
 
@@ -417,7 +414,15 @@ These plots show that our final model is a much better fit on historical data th
 
 ### Residuals
 
-We'll want to include residuals plots here.?
+To check the modelling assumptions of the residuals for our model, we consider the following graphs.
+
+```{r residuals, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE}
+par(mfrow = c(2, 2))
+plot(lm(m_0_year_te, data = demand))
+
+```
+
+The Residuals vs Fitted plot shows little change of variance with mean, so the constant variance assumption is upheld. The QQ Residuals plot the ordered standardised residuals against quantiles of a standard normal. For smaller sample size, the normality assumption is violated, but we can apply the central limit theorem in this case. Therefore this deviation from the normal line is not very significant. The values on the Scale-Location plot vary randomly about the mean, showing no obvious trend shown by the red line, so we can conclude that together with the top-left plot, the constant variance assumption is not violated when applying our final model to the data. Finally, the residuals vs leverage plot gives us Cook’s distance, which measures the change in all model fitted values on omission of the data point in question. Here, it is not problematic, so we can conclude that there are no outliers that need investigating for our model.
 
 ## Cross-Validation
 
@@ -505,7 +510,7 @@ int_month <- ggplot(monthly_summary, aes(x = month, y = mean_int, fill = model))
 grid.arrange(se_month, ds_month, int_month, ncol = 2)
 ```
 
-The above graphs shows that the interaction model is significantly worse for predicting in March. Therefore, for the following analysis, we will discard it as a model and only consider "m0", "Backward" and "Final".
+The above graphs shows that the interaction models are significantly worse for predicting. Particularly, the model with all interactions considered is much worse in March. Therefore, for the following analysis, we will only consider "m0", and "Final".
 
 ```{r reg_plotting_month,  warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -719,9 +724,9 @@ max_demand_plot <- ggplot(simulation_results, aes(x = as.factor(weather_year), y
 max_demand_plot
 ```
 
-From the plot above we can see that the max demand changes according to each weather year being used ranging from around 51, 800 MW (2006) to 54,750 MW (2010). Most of the weather years (except 1994, 2006, 2011) all predicted a higher demand than the true 2013 value and this could be because towards the later weather years the annual demand was decreasing. 
- 
- One possible explanation is that older weather years reflect colder and harsher winters, which would lead to increased heating demand. In contrast, the 2013/2014 winter may have been milder, potentially due to climate change, resulting in a lower actual peak demand. The overestimation of demand could also reflect societal shifts toward more energy-conscious behaviour and improved efficiency. Additionally, the overall trend of declining electricity demand in later years, driven by technological advancements and increased awareness, may explain why older weather conditions tend to overpredict demand when applied to the 2013/2014 structure. Finally particularly high predictions for certain years (such as 2010) likely reflect extreme weather events, highlighting how sensitive peak demand is to severe conditions.
+From the plot above we can see that the max demand changes according to each weather year being used ranging from around 51, 800 MW (2006) to 54,750 MW (2010). Most of the weather years (except 1994, 2006, 2011) all predicted a higher demand than the true 2013 value and this could be because towards the later weather years the annual demand was decreasing.
+
+One possible explanation is that older weather years reflect colder and harsher winters, which would lead to increased heating demand. In contrast, the 2013/2014 winter may have been milder, potentially due to climate change, resulting in a lower actual peak demand. The overestimation of demand could also reflect societal shifts toward more energy-conscious behaviour and improved efficiency. Additionally, the overall trend of declining electricity demand in later years, driven by technological advancements and increased awareness, may explain why older weather conditions tend to overpredict demand when applied to the 2013/2014 structure. Finally particularly high predictions for certain years (such as 2010) likely reflect extreme weather events, highlighting how sensitive peak demand is to severe conditions.
 
 ```{r temp range, echo=FALSE}
 # Define the different TO time ranges and TE rolling windows to explore
@@ -738,19 +743,17 @@ kable(model_results)
 
 ## Model limitations
 
-By using a linear model, we have assumed that $demand_gross$ is normally distributed, and that errors are normally distributed, $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$, and independent. We have also assumed heteroescadicity. This is problematic when considering time-series data, as constant mean and variance over time might not be the case. Our explanatory variables may not be independent, and by ignoring interactions between them, we could be underfitting our data.
+By using a linear model, we have assumed that $demand\_gross$ is normally distributed, and that errors are normally distributed, $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$, and independent. We have also assumed heteroescadicity. This is problematic when considering time-series data, as constant mean and variance over time might not be the case. Our explanatory variables may not be independent, and by ignoring interactions between them, we could be underfitting our data. However, we have been able to explore these assumptions in the residual plots, and shown that our model is consistent in this case.
 
 Additionally, our model is constrained by the quality of the given data. As we are only using one dataset, there could be missing explanatory variables that haven't been taken into account. For example, our model aims to predict energy demand across the whole of the UK, but usage will vary from region-to-region, and be especially different in larger cities compared to remote areas. Our model could also consider bottlenecks such as Christmas, where energy demand will be disproportionately high compared to other days of winter. Even with the dataset we are given, we are only considering winter months, which means the model is much less accurate for predicting energy demand year-round.
 
 Our model is also limited by environmental variables. Climate change is causing changes in variables such as $solar\_S$ and $temp$, but also societal reactions could mean that energy usage of 1993, or even 2013, is not an accurate predictor for the current year. We could improve our model by considering more recent data.
 
-? Ella would you be able to talk about outliers and missing data here please.
-
 Another limitation could be the scalability of our linear model. While it is perfoming well with prediction here, it could be unsuited to larger datasets.
 
 # Conclusion
 
-Our analysis has found that a simpler model is favoured for prediction, as interactions cause over-fitting on the data. This is shown through comparison of our model with a model that includes all interactions, as well as comparison with a backward-step regression model. why could this be? The predictive performance of our model is much higher than the basic model after taking into account historical data, as well as temperature values from the previous days. Additionally, our model performs consistently well across the winter months, although is less accurate in December and March. A reason for this could be that weather, specifically temperature, will be more extreme in these months. December is colder, and March is warmer on average. Therefore, NESO could benefit from different models for each month, as the difference in scores over the months, as shown in our plots, is significant. 
+Our analysis has found that a simpler model is favoured for prediction, as interactions cause over-fitting on the data. This is shown through comparison of our model with a model that includes all interactions, as well as comparison with a backward-step regression model. why could this be? The predictive performance of our model is much higher than the basic model after taking into account historical data, as well as temperature values from the previous days. Additionally, our model performs consistently well across the winter months, although is less accurate in December and March. A reason for this could be that weather, specifically temperature, will be more extreme in these months. December is colder, and March is warmer on average. Therefore, NESO could benefit from different models for each month, as the difference in scores over the months, as shown in our plots, is significant.
 
 By not considering interactions in our model, it is computationally less intensive for NESO to run, while also maintaining high prediction accuracy. However, a drawback of our model is that it doesn't contain any interactions between covariates. This could affect the scalability of our model. By assuming that our covariates are independent, our model could be underfitting our data. On the other hand, our model is supported by its relatively high adjusted $R^2$, fitting historical data well while also predicting better than models that consider interactions.
 
