@@ -84,50 +84,6 @@ lm_predicting <- function(formula, data){
 }
 
 
-#' Leave-One-Out Cross Validation
-#' 
-#' Using the data given and formula to cross validate our best model
-#' by splitting my month
-#' 
-#' @param data the given dataframe
-#' @param formula chosen linear model
-
-monthly_loocv_model <- function(data, formula) {
-
-  months <- levels(data$month)
-
-  # fill dataframe row-by-row with prediction derived from removing a month at a time
-  results <- lapply(months, function(test_month) {
-
-    # divide
-    train_data <- data %>% filter(month != test_month)
-    test_data  <- data %>% filter(month == test_month)
-
-    fit <- lm(formula, data = train_data)
-    pred <- predict(fit, newdata = test_data, se.fit = TRUE, interval = "prediction", level = 0.95)
-
-    # Extract the predicted mean values, and lower and upper bounds
-    mean_pred <- pred$fit[, "fit"]
-    lwr_pi <- pred$fit[, "lwr"]
-    upr_pi <- pred$fit[, "upr"]
-
-    # Filter the predicted means to keep only those greater than 4000
-    #mean_pred[mean_pred < 4000] <- NA
-
-    data.frame(
-      month = test_month,
-      actual = test_data$demand_gross,
-      mean_pred = mean_pred,
-      sd_pred = sqrt(pred$se.fit^2 + summary(fit)$sigma^2),  # Total predictive uncertainty
-      lwr_pi = lwr_pi,
-      upr_pi = upr_pi
-    )
-  })
-
-  bind_rows(results)
-}
-
-
 #' Rolling Cross-Validation
 #' 
 #' Using a 3-1 year split, based on start_year, the year that each winter in the
@@ -227,8 +183,11 @@ simulate_max_demand <- function(weather_year) {
 
 #' Custom TE variable
 #' 
-#' 
-#' 
+#' @param hourly_temp hourly temperature dataset
+#' @param demand demand dataset
+#' @param start_hour
+#' @param end_hour
+#' @param window
 
 calculate_TE <- function(hourly_temp, demand, start_hour, end_hour, window) {
   # Extract the hour from the 'Time' column
@@ -264,7 +223,13 @@ calculate_TE <- function(hourly_temp, demand, start_hour, end_hour, window) {
 
 #' Varying TE comparison table
 #' 
-# Loop through time ranges and rolling windows
+#' Loop through time ranges and rolling windows
+#' 
+#' @param hourly_temp hourly temperature dataset
+#' @param demand demand dataset
+#' @param time_ranges 
+#' @param rolling_windows
+
 compare_TE_models <- function(hourly_temp, demand, time_ranges, rolling_windows) {
   # Initialize results dataframe
   model_results <- data.frame(
