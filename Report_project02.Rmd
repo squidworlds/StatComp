@@ -115,7 +115,7 @@ The wind variable may not be a significant predictor and the regression coeffici
 
 Most points fall below 0.05, where there does not appear to be a strong correlation between solar and demand. However, beyond this, a clear negative correlation emerges, indicating that as solar generation increases, peak demand tends to decrease. This result is intuitive, as increased solar output reduces need for electricity in lighting, therefore decreasing demand and it supports the inclusion of solar as an explanatory variable in our model.
 
-## Evaluating use of temp vs TE
+### Evaluating use of temp vs TE
 
 Both the scatter plots of temperature and TE against demand gross show a negative correlation where higher temperatures generally correspond to a lower electricity demand. This relationship makes intuitive sense, as warmer temperatures tend to reduce the need for heating, which is a significant factor in electricity demand during colder months. Given the clear consistent negative correlation, it was important to include one temperature variable in the model.
 
@@ -139,7 +139,7 @@ year_cubic <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
   theme_bw()
 ```
 
-```{rexploring_year_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Exploring polynomial relationship between peak demand and year"}
+```{r exploring_year_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Exploring polynomial relationship between peak demand and year"}
 grid.arrange(year_quadratic, year_cubic, ncol = 2)
 ```
 
@@ -177,7 +177,7 @@ The first plot illustrates the distribution of peak demand across different mont
 
 The violin plot for day of the week reveals several key trends in peak electricity demand. The data shows that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. ?conclusion The following table allows us to analyse the differences numerically.
 
-```{r wday_eda_table, echo=FALSE}
+```{r wday_eda_table, echo=FALSE, warning=FALSE}
 weekdays_stats <- data.frame(
   Day = factor(0:6, labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")),
   Median = tapply(demand$demand_gross, demand$wdayindex, median, na.rm = TRUE),
@@ -196,7 +196,7 @@ Including day of the week as a factor variable in the model ensures that all var
 
 The next step is to explore interactions that can help improve the model accuracy. Interactions allow us to capture relationships where the effect of one variable on peak demand depends on the value of another.
 
-```{r interactions, echo=FALSE}
+```{r interactions, echo=FALSE, warning=FALSE}
  solar_wday <- ggplot(demand, aes(x=solar_S, y=demand_gross, color=factor(wdayindex))) +
    geom_point(alpha=0.4) +
    geom_smooth(method="lm", se=FALSE) +
@@ -254,15 +254,15 @@ Our earlier plots also revealed the importance of interactions between variables
 
 This leaves us with the final model:$$
 \begin{aligned}
-M1: \text{demand_gross}_i = & \, \beta_0 + \beta_1 \cdot \text{wind}_i + \beta_2 \cdot \text{solar_S}_i + \beta_3 \cdot \text{TE}_i + \beta_4 \cdot \text{factor(wdayindex)}_i + \beta_5 \cdot \text{month}_i \\
+\text{demand_gross}_i = & \, \beta_0 + \beta_1 \cdot \text{wind}_i + \beta_2 \cdot \text{solar_S}_i + \beta_3 \cdot \text{TE}_i + \beta_4 \cdot \text{factor(wdayindex)}_i + \beta_5 \cdot \text{month}_i \\
  & + \beta_6 \cdot \text{poly(start_year, 3)}_i + \beta_7 \cdot (\text{wind} \times \text{month})_i + \beta_8 \cdot (\text{wind} \times \text{poly(start_year, 3)})_i \\
  & + \beta_9 \cdot (\text{solar_S} \times \text{factor(wdayindex)})_i + \beta_{10} \cdot (\text{solar_S} \times \text{month})_i \\
  & + \beta_{11} \cdot (\text{solar_S} \times \text{poly(start_year, 3)})_i + \beta_{12} \cdot (\text{TE} \times \text{month})_i \\
  & + \beta_{13} \cdot (\text{TE} \times \text{poly(start_year, 3)})_i + \beta_{14} \cdot (\text{factor(wdayindex)} \times \text{month})_i \\
  & + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start_year, 3)})_i + \varepsilon_i
-\end{aligned}$$ where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\epsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
+\end{aligned}$$ where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\varepsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
 
-To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R_Squared scores, and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
+To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R-Squared scores, and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
 
 ```{r comparing_models, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -475,7 +475,8 @@ monthly_summary <- all_scores %>%
   group_by(model, month) %>%
   summarise(mean_se = mean(se),
             mean_ds = mean(ds),
-            mean_int = mean(int))
+            mean_int = mean(int)) %>%
+  ungroup()
 
 se_month <- ggplot(monthly_summary, aes(x = month, y = mean_se, fill = model)) +
   geom_bar(stat = "identity", position = "dodge") +  # Create a bar chart
@@ -590,7 +591,7 @@ ds_plot <- ggplot(ii_scores, aes(
 ```
 
 ```{r scores_plot, warning = FALSE, echo = FALSE, cache = FALSE, out.width="100%", caption = "Relationship between scores and demand_gross values."}
-grid.arrange(se_plot, ds_plot, ncol = 2)
+grid.arrange(se_plot, ds_plot, nrows = 2)
 ```
 
 These plots show that the majority of scores for each value of $demand\_gross$ using our model is better than those for $m0$. The minority of SE and DS values that are significantly greater are discussed in the limitations of our model.
@@ -649,7 +650,7 @@ rownames(p_values) <- c("p-values")
 
 ```
 
-```{r diff, warning = FALSE, echo = TRUE, cache = FALSE, out.width="100%", caption = "Difference in scores between m0 and our final model."}
+```{r diff, warning = FALSE, echo = TRUE, cache = FALSE, out.width="50%", caption = "Difference in scores between m0 and our final model."}
 kable(head(scores_diff))
 ```
 
@@ -732,7 +733,7 @@ Temperature is a key driver of electricity demand, especially during winter, whe
 
 Using TO as the temperature variable in our final model had a lower adjusted $R^2$ suggesting that daily temperature alone does not fully account for the variation in demand since using TE had an adjusted $R^2$ of 77.24%. This is likely because people’s energy use responds to patterns of cold weather over several days, not just the temperature on a single day.
 
-```{r temp range, echo=FALSE}
+```{r temp range, echo=FALSE, warning=FALSE}
 # Define the different TO time ranges and TE rolling windows to explore
 time_ranges <- list(c(13, 18), c(16, 20), c(17, 18)) 
 rolling_windows <- c(2, 3, 5)  # Different TE rolling average window sizes
@@ -741,8 +742,8 @@ rolling_windows <- c(2, 3, 5)  # Different TE rolling average window sizes
 model_results <- compare_TE_models(hourly_temp, demand, time_ranges, rolling_windows)
 ```
 
-```{r temp_comp, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE}
-kable(model_results)
+```{r temp_comp, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE}
+suppressWarnings(kable(model_results))
 ```
 
 ## Model limitations
