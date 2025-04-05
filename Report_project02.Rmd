@@ -591,14 +591,15 @@ ds_plot <- ggplot(ii_scores, aes(
 ```
 
 ```{r scores_plot, warning = FALSE, echo = FALSE, cache = FALSE, out.width="100%", caption = "Relationship between scores and demand_gross values."}
-grid.arrange(se_plot, ds_plot, nrows = 2)
+se_plot
+ds_plot
 ```
 
-These plots show that the majority of scores for each value of $demand\_gross$ using our model is better than those for $m0$. The minority of SE and DS values that are significantly greater are discussed in the limitations of our model.
+These plots show that the majority of scores for each value of $demand\_gross$ using our model is better than those for $m0$. Additionally, the scores for higher gross demand are lower, which means that our model is better at predicting extreme values.
 
 ## Exchangeability Test
 
-We want to investigate whether our final model is better at predicting than $m0$. If they are equivalent, it should not matter, on average, if we randomly swap their prediction scores (SE and DS) within each cross-validation score pair $(S_i^A, S_i^B)$. We use the test statistic $\frac{1}{N}\sum{i=1}^n(S_i^A - S_i^B)$, and make a Monte Carlo estimate of the p-value for a test of exchangeability between model predictions from $m0$ and from our model against the alternative hypothesis that our model is better than $m0$.
+We want to investigate whether our final model is better at predicting than $m0$. If they are equivalent, it should not matter, on average, if we randomly swap their prediction scores (SE and DS) within each cross-validation score pair $(S_i^A, S_i^B)$. We use the test statistic $\frac{1}{N} \sum_{i=1}^n(S_i^A - S_i^B)$, and make a Monte Carlo estimate of the p-value for a test of exchangeability between model predictions from $m0$ and from our model against the alternative hypothesis that our model is better than $m0$.
 
 ```{r exchange, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -762,7 +763,7 @@ Our analysis has found that a simpler model is favoured for prediction, as inter
 
 By not considering interactions in our model, it is computationally less intensive for NESO to run, while also maintaining high prediction accuracy. However, a drawback of our model is that it doesn't contain any interactions between covariates. This could affect the scalability of our model. By assuming that our covariates are independent, our model could be underfitting our data. On the other hand, our model is supported by its relatively high adjusted $R^2$, fitting historical data well while also predicting better than models that consider interactions.
 
-In our initial explanatory data analysis, we saw that NESO ..? Importance of selected covariates? By performing rolling-window cross-validation, we have taken into account the time-series nature of the data, making sure not to train on future data to test on past data. As our model has the lowest mean DS score of 17.03901, it has high prediction accuracy. This supports NESO's long-term planning goals. Additionally, we are considering only winter months in order to focus on the time of year with the highest energy demand. This will mitigate the possibility that daily peak demand will exceed maximum supply capacity. By analysing our prediction by month, our final model can help NESO identify when electricity demand will change.
+In our initial explanatory data analysis, we saw that NESO ..? Importance of selected covariates? By performing rolling-window cross-validation, we have taken into account the time-series nature of the data, making sure not to train on future data to test on past data. As our model has the lowest mean DS score of 17.03901, it has high prediction accuracy. This supports NESO's long-term planning goals. Additionally, we are considering only winter months in order to focus on the time of year with the highest energy demand. This will mitigate the possibility that daily peak demand will exceed maximum supply capacity. By analysing our prediction by month, our final model can help NESO identify when electricity demand will change. NESO's goals are reached by our model, as when analysing model performance against demand, we have seen that the SE and DS scores decrease as demand increases.
 
 # Code Appendix
 
