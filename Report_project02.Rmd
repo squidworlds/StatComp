@@ -704,7 +704,10 @@ max_demand_plot <- ggplot(simulation_results, aes(x = as.factor(weather_year), y
 max_demand_plot
 ```
 
-From the plot above we can see that the max demand changes according to each weather year being used ranging from around 51, 800 MW (2006) to 54,750 MW (2010). Most of the weather years (except 1994, 2006, 2011) all predicted a higher demand than the true 2013 value and this could be because towards the later weather years the annual demand was decreasing. This may reflect a change in people becoming more energy conscious and trying to save energy in other ways to reduce usage which explains the overestimation of max demand. There may have been an impact due to extreme weather and this would explain why some weather years have more extreme predicted maximum annual demand values reflecting the weather conditions that were faced in those years.
+From the plot above we can see that the max demand changes according to each weather year being used ranging from around 51, 800 MW (2006) to 54,750 MW (2010). Most of the weather years (except 1994, 2006, 2011) all predicted a higher demand than the true 2013 value and this could be because towards the later weather years the annual demand was decreasing. 
+
+One possible explanation is that older weather years reflect colder and harsher winters, which would lead to increased heating demand. In contrast, the 2013/2014 winter may have been milder, potentially due to climate change, resulting in a lower actual peak demand. The overestimation of demand could also reflect societal shifts toward more energy-conscious behaviour and improved efficiency. Additionally, the overall trend of declining electricity demand in later years, driven by technological advancements and increased awareness, may explain why older weather conditions tend to overpredict demand when applied to the 2013/2014 structure. Finally particularly high predictions for certain years (such as 2010) likely reflect extreme weather events, highlighting how sensitive peak demand is to severe conditions.
+
 
 ```{r temp range, echo=FALSE}
 # Define the different TO time ranges and TE rolling windows to explore
