@@ -17,8 +17,6 @@ comparison <- function(formulas, names, data){
     Model = character(),
     R_squared = numeric(),
     Adjusted_R_squared = numeric(),
-    AIC = numeric(),
-    BIC = numeric(),
     RMSE = numeric(),
     stringsAsFactors = FALSE
   )
@@ -35,10 +33,6 @@ comparison <- function(formulas, names, data){
     r_squared <- model_summary$r.squared
     adj_r_squared <- model_summary$adj.r.squared
     
-    # Calculate AIC and BIC
-    model_aic <- AIC(model)
-    model_bic <- BIC(model)
-    
     # Calculate RMSE (Root Mean Squared Error)
     predictions <- predict(model, newdata = data)
     mse <- mean((data[["demand_gross"]] - predictions)^2)
@@ -49,8 +43,6 @@ comparison <- function(formulas, names, data){
       Model = model_name,
       R_squared = r_squared,
       Adjusted_R_squared = adj_r_squared,
-      AIC = model_aic,
-      BIC = model_bic,
       RMSE = rmse
     ))
   }
@@ -89,24 +81,6 @@ lm_predicting <- function(formula, data){
   p <- data.frame(mean_pred = results$mean_pred, sd = results$sd, lwr_pi = results$lwr_pi, upr_pi = results$upr_pi, mean_conf = results$mean_ci, lwr_ci = results$lwr_ci, upr_ci = results$upr_ci)
   
   return(p)
-}
-
-plotting <- function(prediction, data){
-  
-  # putting historical data and estimated data in a dataframe
-  data <- cbind(prediction, data)
-  
-  # plotting demand against date, creating separate plots by month
-  pp <- ggplot(data, aes(x = demand_gross, y = mean, fill = daytype)) + 
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = daytype), alpha = 0.2) +
-    geom_line(aes(color = daytype), size = 1) +
-    geom_point() +
-    geom_abline(slope = 1, intercept = 0, color = "black", linetype = "dashed") +
-    scale_fill_manual(values = c("weekday" = "cyan", "weekend" = "pink")) + # Custom colors
-    scale_color_manual(values = c("weekday" = "cyan", "weekend" = "pink"))
-  
-  return(pp)
-  
 }
 
 
