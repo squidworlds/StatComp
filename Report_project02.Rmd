@@ -101,8 +101,8 @@ year_plot <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
    theme_bw()
 ```
 
-```{r demand_scatters_show, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE, caption = "Plotting peak demand against explanatory variables."}
-grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_plot, ncol = 2)
+```{r demand_scatters_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Plotting peak demand against explanatory variables."}
+suppressWarnings(grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_plot, ncol = 2))
 ```
 
 The first plot is a scatter graph between the wind capacity factor and the daily peak electricity demand indicates a weak relationship, suggesting wind generation has only a minimal impact on peak demand. This is expected, as wind generation may not correlate strong with demand peaks, which are often influenced more by factors like temperature. In terms of modelling, the wind variable may not be a significant predictor and the regression coefficient is likely to be small. To analyse this, we check the coefficient and statistical significance in the p-value in our models (MAYBE INCLUDE VALUES?). Additionally, we use the $\texttt{step}$ function in R to perform backward stepwise regression. This method iteratively removes variables that variables that do not contribute significantly to the model, based on the Akaike Information Criterion (AIC). Later in this report, we see that wind is included in the final model, therefore the AIC does not improve upon its removal. This would indicate it holds some importance for predicting demand, even if the relationship is weak.
@@ -115,7 +115,7 @@ Both temp and TE variables cannot be included in the model since they are based 
 
 The plot between year and peak demand reveals a correlation, suggesting that demand increases over time. However from this it is evident the relationship is more complex than a simple linear trend, following a cubic pattern. This implies that the the effect of the year variable on demand is not constant and changes as time progresses. There are a variety of reasons which this occurs such as reflecting long-term trends in energy usage, economic growth, policy changes or technological advancements. The following graphs visualize this hypothesis to assess whether a quadratic or cubic term improves the model's fit compared to the linear one.
 
-```{r exploring year, echo=FALSE, warning=FALSE}
+```{r exploring_year, echo=FALSE, warning=FALSE}
 year_quadratic <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
    geom_point(alpha=0.5, color=viridis(9)[6]) +
    geom_smooth(method="lm", formula = y ~ poly(x, 2), color="red") +  
@@ -129,7 +129,7 @@ year_cubic <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
   theme_bw()
 ```
 
-```{r comparison_table, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE, caption = "Exploring polynomial relationship between peak demand and year"}
+```{rexploring_year_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Exploring polynomial relationship between peak demand and year"}
 grid.arrange(year_quadratic, year_cubic, ncol = 2)
 ```
 
@@ -159,7 +159,7 @@ day_plot <- ggplot(demand, aes(x=factor(wdayindex), y=demand_gross, fill=factor(
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-```{r comparison_table, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE, caption = "Violin plots to analyse effect of month and day on peak demand."}
+```{r violin_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Violin plots to analyse effect of month and day on peak demand."}
 grid.arrange(month_plot, day_plot, ncol = 2, nrow = 1)
 ```
 
@@ -167,7 +167,7 @@ The first plot illustrates the distribution of peak demand across different mont
 
 The violin plot for day of the week reveals several key trends in peak electricity demand. The data shows that weekdays generally exhibit higher peak demand compared to weekends. This is consistent with the expectation that electricity consumption tends to be higher during working days due to office buildings and factories. This poses the question if we could simplify the model by grouping weekends together as a single category, thereby reducing the complexity while still capturing the key variation in demand on weekdays versus weekends. ?conclusion The following table allows us to analyse the differences numerically.
 
-```{r wday eda table, echo=FALSE}
+```{r wday_eda_table, echo=FALSE}
 weekdays_stats <- data.frame(
   Day = factor(0:6, labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")),
   Median = tapply(demand$demand_gross, demand$wdayindex, median, na.rm = TRUE),
@@ -176,7 +176,7 @@ weekdays_stats <- data.frame(
 )
 ```
 
-```{r comparison_table, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE, caption = "Median and Quartiles for Each Day of the Week."}
+```{r wday_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Median and Quartiles for Each Day of the Week."}
 kable(weekdays_stats)
 ```
 
@@ -216,7 +216,7 @@ The next step is to explore interactions that can help improve the model accurac
    theme_bw()
 ```
 
-```{r comparison_table, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE, caption = "Analysing interactions between explanatory variables."}
+```{r interactions_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Analysing interactions between explanatory variables."}
 grid.arrange(solar_wday, solar_month, TE_month, ncol = 2, nrow = 2)
 ```
 
@@ -232,7 +232,10 @@ Provide implementation details and include results from cross-validation or othe
 
 To develop a robust forecasting model for daily peak electricity demand, we explored several model formulations and refined them using stepwise selection.
 
-The provided base model, $$m_0:demand_gross=\beta\_0+\beta\_1 Wind_i+\beta_2Solar}_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i$$ accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not? take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
+The provided base model, m0:
+
+$$demand\_gross = \beta_0 + \beta_1 wind_i + \beta_2solar\_S_i+\beta_3temp_i+\beta_4 wdayindex_i+\beta_5 monthindex_i+\epsilon_i$$ 
+accounted for key weather and temporal factors influencing demand. However, we identified several opportunities for improvement. Most notably, the initial model did not? take into account categorical nature of both that wdayindex (day of the week) and monthindex (month). Treating these as continuous variables was an inappropriate simplification, and factoring them as categorical variables was a simple yet important refinement.
 
 Furthermore, the initial model did not take capture long-term trends in electricity demand. The previous exploratory visualizations revealed that year variable, `start_year`, influenced peak demand, particularly in a cubic pattern. This insight led to the inclusion of `poly(start_year, 3)`. This was selected instead over the non-orthogonal polynomial, `start_year + I(start_year^2) + I(start_year^3)` since poly generates orthogonal polynomials ensuring the terms are uncorrelated to reduce multicollinearity.
 
@@ -242,16 +245,16 @@ Our earlier plots also revealed the importance of interactions between variables
 
 This leaves us with the final model:$$
 \begin{aligned}
-M1: \text{demand\_gross}_i = & \, \beta_0 + \beta_1 \cdot \text{wind}_i + \beta_2 \cdot \text{solar\_S}_i + \beta_3 \cdot \text{TE}_i + \beta_4 \cdot \text{factor(wdayindex)}_i + \beta_5 \cdot \text{month}_i \\
- & + \beta_6 \cdot \text{poly(start\_year, 3)}_i + \beta_7 \cdot (\text{wind} \times \text{month})_i + \beta_8 \cdot (\text{wind} \times \text{poly(start\_year, 3)})_i \\
- & + \beta_9 \cdot (\text{solar\_S} \times \text{factor(wdayindex)})_i + \beta_{10} \cdot (\text{solar\_S} \times \text{month})_i \\
- & + \beta_{11} \cdot (\text{solar\_S} \times \text{poly(start\_year, 3)})_i + \beta_{12} \cdot (\text{TE} \times \text{month})_i \\
- & + \beta_{13} \cdot (\text{TE} \times \text{poly(start\_year, 3)})_i + \beta_{14} \cdot (\text{factor(wdayindex)} \times \text{month})_i \\
- & + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start\_year, 3)})_i + \epsilon_i
-\end{aligned}
-$$ where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\epsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
+M1: \text{demand_gross}_i = & \, \beta_0 + \beta_1 \cdot \text{wind}_i + \beta_2 \cdot \text{solar_S}_i + \beta_3 \cdot \text{TE}_i + \beta_4 \cdot \text{factor(wdayindex)}_i + \beta_5 \cdot \text{month}_i \\
+ & + \beta_6 \cdot \text{poly(start_year, 3)}_i + \beta_7 \cdot (\text{wind} \times \text{month})_i + \beta_8 \cdot (\text{wind} \times \text{poly(start_year, 3)})_i \\
+ & + \beta_9 \cdot (\text{solar_S} \times \text{factor(wdayindex)})_i + \beta_{10} \cdot (\text{solar_S} \times \text{month})_i \\
+ & + \beta_{11} \cdot (\text{solar_S} \times \text{poly(start_year, 3)})_i + \beta_{12} \cdot (\text{TE} \times \text{month})_i \\
+ & + \beta_{13} \cdot (\text{TE} \times \text{poly(start_year, 3)})_i + \beta_{14} \cdot (\text{factor(wdayindex)} \times \text{month})_i \\
+ & + \beta_{15} \cdot (\text{factor(wdayindex)} \times \text{poly(start_year, 3)})_i + \epsilon_i
+\end{aligned}$$ 
+where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,15$ are the regression coefficients and the $\epsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
 
-To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R_Squared scores, as well as the AIC (Akaike Information Criterion) and BIC (Bayesian Information Criterion) [should we mention these?] and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
+To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R_Squared scores, and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
 
 ```{r comparing_models, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -303,7 +306,7 @@ colnames(comparison_df) <- c("Model", "$R^2$", "Adjusted $R^2$", "RMSE")
 
 ```
 
-```{r comparison_table, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE, caption = "Table to compare metrics for perfomance on historical data."}
+```{r comparison_table, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Table to compare metrics for perfomance on historical data."}
 kable(comparison_df)
 ```
 
@@ -326,7 +329,7 @@ month:poly(year, 3).$$
 
 In this table we are evaluating the results of the model fitting by checking metrics.
 
-The $R^2$ metrics evaluate how well the model fits the response data, written as $R^2 = 1 − \frac{\frac{1}{n} \sum_{i = 1}^n \hat{\varepsilon_i}^2}{\frac{1}{n} \sum_{i = 1}^n (y_i - \bar{y})^2}$. Additionally, we can analyse Adjusted $R^2$, which uses unbiased estimators, because $R^2$ can overestimate how well a model is doing. We have $R_adj^2 = 1 − \frac{\frac{1}{n-p} \sum_{i = 1}^n \hat{\varepsilon_i}^2}{\frac{1}{n-1} \sum_{i = 1}^n (y_i - \bar{y})^2}$, where $p$ is the number of model parameters. We want our $R^2$ values to be as close as possible to 1 to indicate a close fit.
+The $R^2$ metrics evaluate how well the model fits the response data, written as $R^2 = 1 − \frac{\frac{1}{n} \sum_{i = 1}^n \hat{\varepsilon_i}^2}{\frac{1}{n} \sum_{i = 1}^n (y_i - \bar{y})^2}$. Additionally, we can analyse Adjusted $R^2$, which uses unbiased estimators, because $R^2$ can overestimate how well a model is doing. We have $R_{adj}^2 = 1 − \frac{\frac{1}{n-p} \sum_{i = 1}^n \hat{\varepsilon_i}^2}{\frac{1}{n-1} \sum_{i = 1}^n (y_i - \bar{y})^2}$, where $p$ is the number of model parameters. We want our $R^2$ values to be as close as possible to 1 to indicate a close fit.
 
 The Root Mean Squared Error is defined as $RMSE = \sqrt{\frac{\sum_{i=1}^n(y_i - \hat{y_i})^2}{n - p}}$, where $y_i$ is the actual value for the $i^{th}$ observation, $\hat{y}_i$ is the predicted value for the $i^{th}$ observation, $n$ is the number of observations and $p$ is the number of explanatory variables.
 
@@ -395,7 +398,7 @@ final_historical_month <- ggplot(final_data, aes(x = demand_gross, y = mean_pred
   )
 ```
 
-```{r historical_plot, warning = FALSE, echo = TRUE, out.width="100%", cache = FALSE}
+```{r historical_plot, warning = FALSE, echo = FALSE, out.width="100%", cache = FALSE}
 grid.arrange(m0_historical_daytype, final_historical_daytype, m0_historical_month, final_historical_month, ncol = 2)
 ```
 
@@ -438,7 +441,7 @@ colnames(score_summary) <- c("Model", "Mean SE", "Mean DS", "Mean Interval Score
 
 ```
 
-```{r scores_table, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE, caption="Score comparison of models with respect to month."}
+```{r scores_table, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption="Score comparison of models with respect to month."}
 kable(score_summary)
 ```
 
@@ -487,7 +490,7 @@ int_month <- ggplot(monthly_summary, aes(x = month, y = mean_int, fill = model))
 
 ```
 
-```{r bar_plot_month, warning = FALSE, echo=TRUE, cache = FALSE, out.width="100%", caption = "Model scores comparison with respect to month."}
+```{r bar_plot_month, warning = FALSE, echo=FALSE, cache = FALSE, out.width="100%", caption = "Model scores comparison with respect to month."}
 grid.arrange(se_month, ds_month, int_month, ncol = 2)
 ```
 
@@ -510,7 +513,7 @@ ii_plot_month <- ggplot(ii_scores, aes(x = actual, y = mean, color = model)) +
 
 ```
 
-```{r reg_plot_month, warning = FALSE, echo=TRUE, cache = FALSE, out.width="100%", caption = "Model prediction comparison with respect to month."}
+```{r reg_plot_month, warning = FALSE, echo=FALSE, cache = FALSE, out.width="100%", caption = "Model prediction comparison with respect to month."}
 ii_plot_month
 ```
 
@@ -536,7 +539,7 @@ reg_plot_daytype <- ggplot(ii_scores, aes(x = actual, y = mean, color = model)) 
     )
 ```
 
-```{r reg_plot_daytype, warning = FALSE, echo=TRUE, cache = FALSE, out.width="100%", caption = "Model prediction comparison with respect to day type."}
+```{r reg_plot_daytype, warning = FALSE, echo=FALSE, cache = FALSE, out.width="100%", caption = "Model prediction comparison with respect to day type."}
 reg_plot_daytype
 ```
 
@@ -570,7 +573,7 @@ ds_plot <- ggplot(ii_scores, aes(
     )
 ```
 
-```{r scores_plot, warning = FALSE, echo = TRUE, cache = FALSE, out.width="100%", caption = "Relationship between scores and demand_gross values."}
+```{r scores_plot, warning = FALSE, echo = FALSE, cache = FALSE, out.width="100%", caption = "Relationship between scores and demand_gross values."}
 grid.arrange(se_plot, ds_plot, ncol = 2)
 ```
 
@@ -578,7 +581,7 @@ These plots show that the majority of scores for each value of $demand\_gross$ u
 
 ## Exchangeability Test
 
-We want to investigate whether our final model is better at predicting than $m0$. If they are equivalent, it should not matter, on average, if we randomly swap their prediction scores (SE and DS) within each cross-validation score pair $(S_i^A, S_i^B)$. We use the test statistic \$\frac{1}{N}\sum{i=1}^n(S_i^A - S_i\^B)\$1, and make a Monte Carlo estimate of the p-value for a test of exchangeability between model predictions from $m0$ and from our model against the alternative hypothesis that our model is better than $m0$.
+We want to investigate whether our final model is better at predicting than $m0$. If they are equivalent, it should not matter, on average, if we randomly swap their prediction scores (SE and DS) within each cross-validation score pair $(S_i^A, S_i^B)$. We use the test statistic $\frac{1}{N}\sum{i=1}^n(S_i^A - S_i^B)$, and make a Monte Carlo estimate of the p-value for a test of exchangeability between model predictions from $m0$ and from our model against the alternative hypothesis that our model is better than $m0$.
 
 ```{r exchange, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -634,7 +637,7 @@ rownames(p_values) <- c("p-values")
 kable(head(scores_diff))
 ```
 
-```{r pvals, warning = FALSE, echo = TRUE, cache = FALSE, out.width="100%", caption = "P-values for hypothesis that the models are exchangeable."}
+```{r pvals, warning = FALSE, echo = FALSE, cache = FALSE, out.width="50%", caption = "P-values for hypothesis that the models are exchangeable."}
 kable(p_values)
 ```
 
@@ -644,7 +647,8 @@ We can see that our models are so different that they are not exchangeable. Ther
 
 We can test how the maximum annual demand of the 2013-2014 winter season changes based on weather conditions from previous winters. So using the data from each previous winter season we simulate the maximum annual demand for 2013 by using our model and predicting the values.
 
-```{r Max_Annual_Demand, warning = False, echo = False, out.width = "50%", cache = FALSE}
+```{r Max_Annual_Demand, warning = FALSE, echo = FALSE, out.width = "50%", cache = FALSE}
+
 # First convert character Date to proper date format
 demand <- demand %>%
   mutate(
@@ -653,7 +657,7 @@ demand <- demand %>%
     day_of_month = lubridate::mday(Date) # Eg numbers 1-31
   )
 
-# Prepare the base model 
+# Prepare the base model
 # Using your original model specification
 demand_model <- lm(demand_gross ~ wind + solar_S + TE + month + day + poly(year, 3), data = demand)
 
@@ -667,7 +671,7 @@ historical_weather <- demand %>%
   filter(start_year < 2013) %>%
   dplyr::select(day_month, wind, solar_S, TE)
 
-# Run simulations for all historical years 
+# Run simulations for all historical years
 historical_years <- unique(demand$start_year[demand$start_year < 2013])
 
 # Run simulations (using map_df for efficiency)
@@ -680,7 +684,7 @@ actual_max_2013 <- demand %>%
     simulated_year = 2013,
     weather_year = 2013,
     max_demand = max(demand_gross, na.rm = TRUE))
-simulation_results <- bind_rows(simulation_results, actual_max_2013) 
+simulation_results <- bind_rows(simulation_results, actual_max_2013)
 
 buffer <- 0.01 * actual_max_2013$max_demand  # 10% buffer
 y_min <- min(simulation_results$max_demand, actual_max_2013$max_demand) - buffer
@@ -700,14 +704,13 @@ max_demand_plot <- ggplot(simulation_results, aes(x = as.factor(weather_year), y
   theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels
 ```
 
-```{r plot_max_annual_demand, warning = FALSE, echo=TRUE, out.width="100%", cache = FALSE}
+```{r plot_max_annual_demand, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE}
 max_demand_plot
 ```
 
 From the plot above we can see that the max demand changes according to each weather year being used ranging from around 51, 800 MW (2006) to 54,750 MW (2010). Most of the weather years (except 1994, 2006, 2011) all predicted a higher demand than the true 2013 value and this could be because towards the later weather years the annual demand was decreasing. 
-
-One possible explanation is that older weather years reflect colder and harsher winters, which would lead to increased heating demand. In contrast, the 2013/2014 winter may have been milder, potentially due to climate change, resulting in a lower actual peak demand. The overestimation of demand could also reflect societal shifts toward more energy-conscious behaviour and improved efficiency. Additionally, the overall trend of declining electricity demand in later years, driven by technological advancements and increased awareness, may explain why older weather conditions tend to overpredict demand when applied to the 2013/2014 structure. Finally particularly high predictions for certain years (such as 2010) likely reflect extreme weather events, highlighting how sensitive peak demand is to severe conditions.
-
+ 
+ One possible explanation is that older weather years reflect colder and harsher winters, which would lead to increased heating demand. In contrast, the 2013/2014 winter may have been milder, potentially due to climate change, resulting in a lower actual peak demand. The overestimation of demand could also reflect societal shifts toward more energy-conscious behaviour and improved efficiency. Additionally, the overall trend of declining electricity demand in later years, driven by technological advancements and increased awareness, may explain why older weather conditions tend to overpredict demand when applied to the 2013/2014 structure. Finally particularly high predictions for certain years (such as 2010) likely reflect extreme weather events, highlighting how sensitive peak demand is to severe conditions.
 
 ```{r temp range, echo=FALSE}
 # Define the different TO time ranges and TE rolling windows to explore
@@ -724,7 +727,7 @@ kable(model_results)
 
 ## Model limitations
 
-By using a linear model, we have assumed that $demand_gross$ is normally distributed, and that errors are normally distributed, $\varepsilon_i \sim \N(0, \sigma^2)$, and independent. We have also assumed heteroescadicity. This is problematic when considering time-series data, as constant mean and variance over time might not be the case. Our explanatory variables may not be independent, and by ignoring interactions between them, we could be underfitting our data.
+By using a linear model, we have assumed that $demand_gross$ is normally distributed, and that errors are normally distributed, $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$, and independent. We have also assumed heteroescadicity. This is problematic when considering time-series data, as constant mean and variance over time might not be the case. Our explanatory variables may not be independent, and by ignoring interactions between them, we could be underfitting our data.
 
 Our model is also limited by environmental variables. Climate change is causing changes in variables such as $solar\_S$ and $temp$, but also societal reactions could mean that energy usage of 1993, or even 2013, is not an accurate predictor for the current year. We could improve our model by considering more recent data.
 
@@ -740,11 +743,9 @@ Summarize here the key insights from your analysis, focusing on the final model�
 
 Emphasize how your model can support NESO's long-term planning goals. If the model underperforms in some respects, provide a clear and well-reasoned explanation. Keep in mind that a negative result, i.e. a model that does not work well predictively, that is well explained and justified in terms of why it failed will likely receive higher marks than a model with strong predictive performance but with poor or incorrect explanations and justifications. In other words, sound reasoning and transparency will be valued more than overclaiming results.
 
-Our analysis has found that a simpler model is favoured for prediction, as interactions cause over-fitting on the data. This is shown through comparison of our model with a model that includes all interactions, as well as comparison with a backward-step regression model. why could this be? The predictive performance of our model is much higher than the basic model after taking into account historical data, as well as temperature values from the previous days. Additionally, our model performs consistently well across the winter months, although is less accurate in December and March. A reason for this could be that weather, specifically temperature, will be more extreme in these months. December is colder, and March is warmer on average. Therefore, NESO could benefit from different models for each month, as the difference in scores over the months, shown in our plots, is significant. 
+Our analysis has found that a simpler model is favoured for prediction, as interactions cause over-fitting on the data. This is shown through comparison of our model with a model that includes all interactions, as well as comparison with a backward-step regression model. why could this be? The predictive performance of our model is much higher than the basic model after taking into account historical data, as well as temperature values from the previous days. Additionally, our model performs consistently well across the winter months, although is less accurate in December and March. A reason for this could be that weather, specifically temperature, will be more extreme in these months. December is colder, and March is warmer on average. Therefore, NESO could benefit from different models for each month, as the difference in scores over the months, shown in our plots, is significant.
 
-By performing rolling-window cross-validation, we have taken into account the time-series nature of the data, making sure not to train on future data to test on past data. By comparing the scores, we have seen that our model is a better 
-
-The limitations of our model are seen when comparing prediction performance by month and daytype.
+In our initial explanatory data analysis, we saw that NESO ..? Importance of selected covariates? By performing rolling-window cross-validation, we have taken into account the time-series nature of the data, making sure not to train on future data to test on past data.
 
 # Code Appendix
 
