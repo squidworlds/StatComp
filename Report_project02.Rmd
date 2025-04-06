@@ -56,7 +56,8 @@ A thorough understanding of the dataset is essential for effective forecasting. 
 
 During preprocessing, we confirmed that there were no missing values in the dataset. Outliers were reviewed for potential input errors, but no evidence warranted their removal, ensuring data quality for model fitting. This was also confirmed when checking the Cook's distance on leverage plots of our final model. The nature of each variable was checked to ensure correct data types (e.g. continuous, categorical) and categorical variables were renamed for easier analysis.
 
-Our analysis begins by analysing how continuous predictors, wind, solar_S, TE (temperature) and year relate to the response variable, peak electricity demand (demand_gross).
+Our analysis begins by analysing how continuous predictors, $wind$, $solar\_S$, $TE$ (temperature) and $year$ relate to the response variable, peak electricity demand ($demand\_gross$).
+
 ```{r demand_scatters, echo=FALSE, warning=FALSE}
 # Wind vs demand
 wind_plot <- ggplot(demand, aes(x=wind, y=demand_gross)) +
@@ -97,6 +98,7 @@ year_plot <- ggplot(demand, aes(x=start_year, y=demand_gross)) +
 ```{r demand_scatters_show, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE, caption = "Plotting peak demand against explanatory variables."}
 suppressWarnings(grid.arrange(wind_plot, solar_plot, temp_plot, te_plot, year_plot, ncol = 2))
 ```
+
 The scatter plot between wind capacity factor and daily peak electricity demand shows a weak relationship, suggesting wind generation has minimal impact on peak demand. This is expected as demand peaks are probably more likely to be influenced by factors like temperature.
 
 The wind variable, though not a strong predictor, was statistically significant in our final model with a regression coefficient of 898.17, even at the 1% significance level. Additionally, we used the $\texttt{step}$ function to perform backward stepwise regression on another of our models. This method iteratively removes variables that do not contribute significantly to the model, based on the Akaike Information Criterion (AIC). Despite its weak relationship, wind remained in the model we conducted this on as its removal did not improve the AIC, indicating it still plays a role in predicting demand.
@@ -241,11 +243,11 @@ However, our analysis concluded that a simpler model without interactions had be
 \begin{aligned}
 M_1: \text{Peak Demand} &= \beta_0 + \beta_1 \cdot \text{wind} + \beta_2 \cdot \text{solar}_S + \beta_3 \cdot \text{TE} \\
 &+ \sum_{i=1}^{6} \beta_{i+3} \cdot \text{day}_i + \sum_{j=1}^{3} \beta_{j+9} \cdot \text{month}_j \\
-&+ \beta_{12} \cdot \text{poly(year,3)_1} + \beta_{13} \cdot \text{poly(year,3)_2} + \beta_{14} \cdot \text{poly(year,3)_3} + \varepsilon_i
+&+ \beta_{12} \cdot \text{poly(year, 3)}_1 + \beta_{13} \cdot \text{poly(year, 3)}_2 + \beta_{14} \cdot \text{poly(year, 3)}_3 + \varepsilon_i
 \end{aligned}
 $$ where $\text{demand_gross}_i$ is the peak demand at the time $i$, $\beta_j$ for $j=0,1,\dots,7$ are the regression coefficients and the $\varepsilon\sim\mathcal{N}(0,\sigma^2)$ is the error term at time $i$.
 
-To evaluate the models to consider, the most important metrics to consider are the R-Squared and Adjusted R_Squared scores, and Root Mean Squared Error (RMSE). These metrics for each model are shown in the following table.
+To evaluate the models to consider, the most important metrics to consider are the $R^2$ and Adjusted $R^2$ scores, and Root Mean Squared Error ($RMSE$). These metrics for each model are shown in the following table.
 
 ```{r comparing_models, warning = FALSE, echo=FALSE, out.width="50%", cache = FALSE}
 
@@ -405,7 +407,7 @@ plot(lm(m_0_year_te, data = demand))
 
 ```
 
-The Residuals vs Fitted plot shows little change of variance with mean, so the constant variance assumption is upheld. The QQ Residuals plot the ordered standardised residuals against quantiles of a standard normal. For smaller sample size, the normality assumption is violated, but we can apply the central limit theorem in this case. Therefore this deviation from the normal line is not very significant. The values on the Scale-Location plot shows random variation around the mean, confirming no violation of the constant variance assumption. Finally, the residuals vs leverage plot gives us Cook’s distance, which measures the change in all model fitted values on omission of the data point in question. Here, it is not problematic, so we can conclude that there are no outliers that need investigating for our model.
+The Residuals vs Fitted plot shows little change of variance with mean, so the constant variance assumption is upheld. The Q-Q Residuals plot the ordered standardised residuals against quantiles of a standard normal. For smaller sample size, the normality assumption is violated, but we can apply the central limit theorem in this case. Therefore this deviation from the normal line is not very significant. The values on the Scale-Location plot shows random variation around the mean, confirming no violation of the constant variance assumption. Finally, the residuals vs leverage plot gives us Cook’s distance, which measures the change in all model fitted values on omission of the data point in question. Here, it is not problematic, so we can conclude that there are no outliers that need investigating for our model.
 
 ## Cross-Validation
 
@@ -444,7 +446,7 @@ colnames(score_summary) <- c("Model", "Mean SE", "Mean DS", "Mean Interval Score
 kable(score_summary)
 ```
 
-This table shows the average Squared Error (SE), average Dawid-Sebastiani score (DS) and the average Interval score for the basic model and our final model. As these are negatively-oriented scores, smaller values indicate better performance.
+This table shows the average Squared Error ($SE$), average Dawid-Sebastiani score ($DS$) and the average Interval score for the basic model and our final model. As these are negatively-oriented scores, smaller values indicate better performance.
 
 Squared Error $S_{SE}(F, y) = (y − \hat{y}_F)^2$ measures the difference from the mean but provides no insight into uncertainty, making differences in SE less important. On the other hand, the Dawid-Sebastiani score $S_{DS}(F, y) = \frac{(y−\mu_F)^2}{\sigma_F^2} + \log(\sigma_F^2)$ accounts for prediction variance. Finally, the Interval score $S_{INT}(F, y) = U_F − L_F + \frac{2}{\alpha}(L_F - y)\mathbb{I}(y < L_F ) + \frac{2}{\alpha}(y − U_F)\mathbb{I}(y > U_F)$ shows us the coverage of our prediction. We want the difference between $U_F$ and $L_F$, the upper and lower bounds for our prediction F, to be as small as possible while still covering the value as much as possible.
 
@@ -517,7 +519,7 @@ ii_plot_month <- ggplot(ii_scores, aes(x = actual, y = mean, color = model)) +
 ii_plot_month
 ```
 
-This regression plot compares Actual vs Predicted Demand for our models after rolling-window cross-validation. Points along the black dashed $y=x$ line indicate accurate predictions. The plots reveal that our final model performs far better than $m_0$ and better in November and February, with tighter point clusters, while it struggles more in December, January, and March.
+This regression plot compares Actual vs Predicted Demand for our models after rolling-window cross-validation. Points along the black dashed $y=x$ line indicate accurate predictions. The plots reveal that our final model performs far better than $m0$ and better in November and February, with tighter point clusters, while it struggles more in December, January, and March.
 
 We can also assess performance across weekend and weekday.
 
@@ -722,6 +724,7 @@ We also experimented calculating TO over both a larger and shorter time frame (1
 ```{r temp range, echo=FALSE, warning=FALSE}
 # Call the function and get the results for rolling averages over 2, 3, and 5 days
 rolling_r2_results <- calculate_rolling_r2(demand, c(2, 3, 5))
+colnames(rolling_r2_results) <- c("Time Frame (Days)", "Adjusted $R^2$")
 ```
 
 ```{r temp_comp, warning = FALSE, echo=FALSE, out.width="100%", cache = FALSE}
@@ -735,13 +738,13 @@ Our model relies on a linear regression framework, which carries several assumpt
 
 Additionally, our model is constrained by the quality of the data itself. As we are only using one dataset, there could be missing explanatory variables that haven't been taken into account. For example, our model aims to predict energy demand across the whole of the UK, but usage will vary from region-to-region, and be especially different in larger cities compared to remote areas. Our model could also consider bottlenecks such as Christmas, may experience unusual spikes in demand that the model does not account for explicitly. With our current dataset, we only consider winter months, which means the model is much less accurate for predicting energy demand year-round.
 
-Environmental and societal changes also present challenges. Variables like `solar_S` and `temp` are influenced by ongoing climate change, and shifts in consumer behaviour, energy efficiency, and policy may mean that historical demand data, especially from earlier years, are less representative of current or future patterns. Incorporating more recent data could help address these issues and improve model relevance.
+Environmental and societal changes also present challenges. Variables like $solar_S$ and $temp$ are influenced by ongoing climate change, and shifts in consumer behaviour, energy efficiency, and policy may mean that historical demand data, especially from earlier years, are less representative of current or future patterns. Incorporating more recent data could help address these issues and improve model relevance.
 
 Lastly, while linear regression is computationally efficient and interpretable, it may not scale well to larger or more complex datasets. While it is performing well with prediction here, it could be unsuited to larger datasets as the electricity system evolves. NESO may benefit from exploring more flexible modelling techniques such as random forests or other machine learning techniques, which can better handle non-linear relationships and interactions without overfitting.
 
 # Conclusion
 
-Our analysis finds that a simpler model is preferred for prediction, as including interactions results in over-fitting. This is shown by comparing our final model with both a full interaction model and a backward stepwise regression model. why could this be? While interaction terms can capture complex relationships between variables, they also substantially increase the number of parameters, making the model more sensitive to noise in the training data. This likely explains why the interaction model, despite fitting the historical data closely, performed worse in external prediction.
+Our analysis finds that a simpler model is preferred for prediction, as including interactions results in over-fitting. This is shown by comparing our final model with both a full interaction model and a backward stepwise regression model. While interaction terms can capture complex relationships between variables, they also substantially increase the number of parameters, making the model more sensitive to noise in the training data. This likely explains why the interaction model, despite fitting the historical data closely, performed worse in external prediction.
 
 In contrast, our model achieves a strong balance between accuracy and interpretability. By incorporating historical demand, temperature (including lagged values via the TE variable), and seasonal effects such as day of week and month, our model outperforms a baseline model. Although our model is less accurate in December and March, which may be due to greater variability and extreme temperatures during these transitional months; December is typically colder, and March marks a shift to warmer weather. Therefore, NESO could benefit from different models for each month, as the difference in scores over the months, as shown in our plots, are significant.
 
