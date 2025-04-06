@@ -1,6 +1,6 @@
 ---
 title: "Modelling Peak Electricity Demand in Great Britain"
-author: "Group 50, Ella Park (s2311400), Saioa Galvin (s2516907), Kieran Marguerie de Rotrou (s2536961)"
+author: "Group 50, Ella Park (s2311400), Saioa Galvin (s2516907), Kieran Marguerie de Rotrou (s2536961), (3,226 words)"
 output:
   html_document:
     number_sections: no
