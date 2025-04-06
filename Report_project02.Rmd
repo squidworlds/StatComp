@@ -62,14 +62,14 @@ Our analysis begins by analysing how continuous predictors, wind, solar_S, TE (t
 wind_plot <- ggplot(demand, aes(x=wind, y=demand_gross)) +
   geom_point(alpha=0.5, color=viridis(5)[4]) +
   geom_smooth(method="lm", color="red") +
-  labs(title="Peak Demand vs Wind Capacity Factor", x="Wind Capacity Factor", y="Peak Demand (MW)") +
+  labs(title="Peak Demand vs Wind Capacity", x="Wind Capacity Factor", y="Peak Demand (MW)") +
   theme_bw()
 
 # Solar vs demand
 solar_plot <- ggplot(demand, aes(x=solar_S, y=demand_gross)) +
   geom_point(alpha=0.5, color=viridis(5)[5]) +
   geom_smooth(method="lm", color="red") +
-  labs(title="Peak Demand vs Solar Capacity Factor", x="Solar Capacity Factor", y="Peak Demand (MW)") +
+  labs(title="Peak Demand vs Solar Capacity", x="Solar Capacity Factor", y="Peak Demand (MW)") +
   theme_bw()
 
 # Temp vs demand- shows negative correlation
