@@ -573,7 +573,7 @@ ds_plot <- ggplot(ii_scores, aes(
     )
 ```
 
-```{r scores_plot, warning = FALSE, echo = FALSE, cache = FALSE, out.width="100%", caption = "Relationship between scores and demand_gross values."}
+```{r scores_plot, warning = FALSE, echo = FALSE, cache = FALSE, out.width="80%", caption = "Relationship between scores and demand_gross values."}
 se_plot
 ds_plot
 ```
